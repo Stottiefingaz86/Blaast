@@ -1,10 +1,10 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { dataDir } from "@/lib/platform/data-dir";
 import type { PlanId } from "@/lib/platform/plans";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-const USERS_PATH = path.join(DATA_DIR, "platform-users.json");
+const USERS_PATH = () => path.join(dataDir(), "platform-users.json");
 
 export type PlatformRole = "owner" | "admin" | "member";
 
@@ -26,7 +26,7 @@ export type PlatformUser = {
 type UsersFile = { users: PlatformUser[] };
 
 async function ensureDir() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(dataDir(), { recursive: true });
 }
 
 function hashPassword(password: string, salt?: string): string {
@@ -47,7 +47,7 @@ export function verifyPassword(password: string, stored: string): boolean {
 async function readFile(): Promise<UsersFile> {
   await ensureDir();
   try {
-    const raw = await fs.readFile(USERS_PATH, "utf8");
+    const raw = await fs.readFile(USERS_PATH(), "utf8");
     return JSON.parse(raw) as UsersFile;
   } catch {
     const seed = await seedAdmin();
@@ -57,16 +57,25 @@ async function readFile(): Promise<UsersFile> {
 
 async function writeFile(data: UsersFile) {
   await ensureDir();
-  await fs.writeFile(USERS_PATH, JSON.stringify(data, null, 2), "utf8");
+  await fs.writeFile(USERS_PATH(), JSON.stringify(data, null, 2), "utf8");
 }
 
 async function seedAdmin(): Promise<UsersFile> {
   const now = new Date().toISOString();
+  const email = (
+    process.env.BLAAST_OWNER_EMAIL ||
+    "you@blaast.app"
+  )
+    .trim()
+    .toLowerCase();
+  const password =
+    process.env.BLAAST_OWNER_PASSWORD?.trim() || "blaast-admin";
+  const name = process.env.BLAAST_OWNER_NAME?.trim() || "Chris";
   const admin: PlatformUser = {
     id: "usr_admin",
-    email: "you@blaast.app",
-    name: "Chris",
-    passwordHash: hashPassword("blaast-admin"),
+    email,
+    name,
+    passwordHash: hashPassword(password),
     plan: "pro",
     role: "owner",
     createdAt: now,
@@ -146,11 +155,15 @@ export async function authenticate(
   const user = await getUserByEmail(email);
   if (!user) return null;
   if (!verifyPassword(password, user.passwordHash)) return null;
-  const data = await readFile();
-  const row = data.users.find((u) => u.id === user.id);
-  if (row) {
-    row.lastLoginAt = new Date().toISOString();
-    await writeFile(data);
+  try {
+    const data = await readFile();
+    const row = data.users.find((u) => u.id === user.id);
+    if (row) {
+      row.lastLoginAt = new Date().toISOString();
+      await writeFile(data);
+    }
+  } catch {
+    /* ephemeral FS — login still succeeds */
   }
   return toPublic(user);
 }

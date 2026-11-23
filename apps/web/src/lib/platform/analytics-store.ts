@@ -1,9 +1,9 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomBytes } from "crypto";
+import { dataDir } from "@/lib/platform/data-dir";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-const PATH = path.join(DATA_DIR, "platform-analytics.json");
+const analyticsPath = () => path.join(dataDir(), "platform-analytics.json");
 
 export type AnalyticsEventKind =
   | "mcp_call"
@@ -29,21 +29,23 @@ export type AnalyticsEvent = {
 type AnalyticsFile = { events: AnalyticsEvent[] };
 
 async function readFile(): Promise<AnalyticsFile> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(dataDir(), { recursive: true });
   try {
-    return JSON.parse(await fs.readFile(PATH, "utf8")) as AnalyticsFile;
+    return JSON.parse(
+      await fs.readFile(analyticsPath(), "utf8"),
+    ) as AnalyticsFile;
   } catch {
     return { events: [] };
   }
 }
 
 async function writeFile(data: AnalyticsFile) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(dataDir(), { recursive: true });
   // Cap growth for local MVP
   if (data.events.length > 20_000) {
     data.events = data.events.slice(-15_000);
   }
-  await fs.writeFile(PATH, JSON.stringify(data, null, 2), "utf8");
+  await fs.writeFile(analyticsPath(), JSON.stringify(data, null, 2), "utf8");
 }
 
 export async function trackEvent(

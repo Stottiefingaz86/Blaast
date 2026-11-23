@@ -18,26 +18,26 @@ import type {
   RecordingArtifact,
   SessionGuide,
 } from "./types";
+import { capturesDir, dataDir } from "@/lib/platform/data-dir";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-const STORE_PATH = path.join(DATA_DIR, "admin-store.json");
-const CAPTURES_DIR = path.join(DATA_DIR, "captures");
+const storePath = () => path.join(dataDir(), "admin-store.json");
+const CAPTURES_DIR = () => capturesDir();
 
 async function ensureStore(): Promise<AdminStore> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(dataDir(), { recursive: true });
   try {
-    const raw = await fs.readFile(STORE_PATH, "utf8");
+    const raw = await fs.readFile(storePath(), "utf8");
     return JSON.parse(raw) as AdminStore;
   } catch {
     const empty: AdminStore = { operators: [], sessions: [] };
-    await fs.writeFile(STORE_PATH, JSON.stringify(empty, null, 2));
+    await fs.writeFile(storePath(), JSON.stringify(empty, null, 2));
     return empty;
   }
 }
 
 async function writeStore(store: AdminStore) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2));
+  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.writeFile(storePath(), JSON.stringify(store, null, 2));
 }
 
 function hostnameFromUrl(url: string) {
@@ -294,7 +294,7 @@ export async function updateSessionGuide(
 }
 
 function sessionCapturesDir(sessionId: string) {
-  return path.join(CAPTURES_DIR, sessionId);
+  return path.join(CAPTURES_DIR(), sessionId);
 }
 
 export async function saveRecordingArtifact(input: {
@@ -328,7 +328,7 @@ export async function saveRecordingArtifact(input: {
     const ext = input.videoMime?.includes("mp4") ? "mp4" : "webm";
     videoPath = `${session.id}/${id}.${ext}`;
     await fs.writeFile(
-      path.join(CAPTURES_DIR, videoPath),
+      path.join(CAPTURES_DIR(), videoPath),
       Buffer.from(input.videoBase64, "base64"),
     );
   }
@@ -336,14 +336,14 @@ export async function saveRecordingArtifact(input: {
     const ext = input.posterMime?.includes("jpeg") ? "jpg" : "png";
     posterPath = `${session.id}/${id}.${ext}`;
     await fs.writeFile(
-      path.join(CAPTURES_DIR, posterPath),
+      path.join(CAPTURES_DIR(), posterPath),
       Buffer.from(input.posterBase64, "base64"),
     );
   }
   if (input.structureJson !== undefined) {
     structurePath = `${session.id}/${id}.structure.json`;
     await fs.writeFile(
-      path.join(CAPTURES_DIR, structurePath),
+      path.join(CAPTURES_DIR(), structurePath),
       JSON.stringify(input.structureJson, null, 2),
     );
   }
@@ -445,7 +445,7 @@ export async function deleteRecordingArtifact(
   for (const rel of [art.videoPath, art.posterPath, art.structurePath]) {
     if (!rel) continue;
     try {
-      await fs.unlink(path.join(CAPTURES_DIR, rel));
+      await fs.unlink(path.join(CAPTURES_DIR(), rel));
     } catch {
       /* missing file ok */
     }
@@ -676,11 +676,11 @@ export async function setArtifactClipWindow(
 
     // Refresh poster so library tiles match the trimmed In frame
     if (art.videoPath) {
-      const videoAbs = path.join(CAPTURES_DIR, art.videoPath);
+      const videoAbs = path.join(CAPTURES_DIR(), art.videoPath);
       const posterRel =
         art.posterPath ??
         `${sessionId}/${artifactId}.png`;
-      const posterAbs = path.join(CAPTURES_DIR, posterRel);
+      const posterAbs = path.join(CAPTURES_DIR(), posterRel);
       try {
         const { extractPosterFrame } = await import(
           "@/lib/admin/poster-from-video"
@@ -721,7 +721,7 @@ function clampPct(n: number) {
 }
 
 export function capturesRoot() {
-  return CAPTURES_DIR;
+  return CAPTURES_DIR();
 }
 
 export async function resolveArtifactFile(
@@ -740,7 +740,7 @@ export async function resolveArtifactFile(
         ? art.posterPath
         : art.structurePath;
   if (!rel) return null;
-  const full = path.join(CAPTURES_DIR, rel);
+  const full = path.join(CAPTURES_DIR(), rel);
   try {
     await fs.access(full);
     return { full, artifact: art };

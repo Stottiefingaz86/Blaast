@@ -3,6 +3,7 @@ import path from "path";
 import { coverageStepById } from "@/lib/admin/coverage-pack";
 import { getOperator } from "@/lib/admin/store";
 import type { CaptureSession, RecordingArtifact } from "@/lib/admin/types";
+import { dataDir } from "@/lib/platform/data-dir";
 
 export type PublishedClipRecord = {
   id: string;
@@ -30,12 +31,11 @@ export type PublishedClipRecord = {
   evidenceId: string;
 };
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-const PUBLISH_PATH = path.join(DATA_DIR, "published-clips.json");
+const publishPath = () => path.join(dataDir(), "published-clips.json");
 
 async function readPublished(): Promise<PublishedClipRecord[]> {
   try {
-    const raw = await fs.readFile(PUBLISH_PATH, "utf8");
+    const raw = await fs.readFile(publishPath(), "utf8");
     const parsed = JSON.parse(raw) as PublishedClipRecord[];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -44,8 +44,8 @@ async function readPublished(): Promise<PublishedClipRecord[]> {
 }
 
 async function writePublished(rows: PublishedClipRecord[]) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(PUBLISH_PATH, JSON.stringify(rows, null, 2), "utf8");
+  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.writeFile(publishPath(), JSON.stringify(rows, null, 2), "utf8");
 }
 
 function buildRecord(

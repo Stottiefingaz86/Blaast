@@ -11,13 +11,13 @@ import {
   type PatternKind,
 } from "@/lib/patterns/types";
 import type { OperatorVertical } from "@/lib/admin/types";
+import { dataDir } from "@/lib/platform/data-dir";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-const INDEX_PATH = path.join(DATA_DIR, "pattern-index.json");
+const indexPath = () => path.join(dataDir(), "pattern-index.json");
 
 export async function readPatternIndex(): Promise<PatternIndex> {
   try {
-    const raw = await fs.readFile(INDEX_PATH, "utf8");
+    const raw = await fs.readFile(indexPath(), "utf8");
     return JSON.parse(raw) as PatternIndex;
   } catch {
     return {
@@ -30,8 +30,8 @@ export async function readPatternIndex(): Promise<PatternIndex> {
 }
 
 async function writePatternIndex(index: PatternIndex) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(INDEX_PATH, JSON.stringify(index, null, 2), "utf8");
+  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.writeFile(indexPath(), JSON.stringify(index, null, 2), "utf8");
 }
 
 function rollup(fingerprints: PatternFingerprint[]): PatternAggregate[] {

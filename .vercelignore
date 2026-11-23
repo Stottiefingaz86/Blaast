@@ -1,0 +1,10 @@
+apps/web/.data
+apps/web/.data/**
+apps/web/.next
+apps/web/node_modules
+**/node_modules
+**/.next
+**/*.webm
+**/*.mp4
+_extracted
+igaming-intelligence-cursor-starter.zip
