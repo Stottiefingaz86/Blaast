@@ -18,3 +18,7 @@ agent-transcripts/
 igaming-intelligence-cursor-starter.zip
 _extracted/
 apps/web/supabase/.temp/
+
+# Google OAuth secrets
+**/client_secret*.json
+*client_secret*.json
