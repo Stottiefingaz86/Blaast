@@ -56,6 +56,7 @@ export function AdminUsersClient({
         <thead className="border-b border-black/[0.06] text-[11px] tracking-wide text-neutral-400 uppercase">
           <tr>
             <th className="px-4 py-3 font-medium">User</th>
+            <th className="px-4 py-3 font-medium">Signed up</th>
             <th className="px-4 py-3 font-medium">Plan</th>
             <th className="px-4 py-3 font-medium">Role</th>
             <th className="px-4 py-3 font-medium">MCP</th>
@@ -63,6 +64,16 @@ export function AdminUsersClient({
           </tr>
         </thead>
         <tbody>
+          {users.length === 0 && (
+            <tr>
+              <td
+                colSpan={6}
+                className="px-4 py-8 text-center text-neutral-400"
+              >
+                No accounts yet — signups will show here.
+              </td>
+            </tr>
+          )}
           {users.map((u) => (
             <tr
               key={u.id}
@@ -71,6 +82,14 @@ export function AdminUsersClient({
               <td className="px-4 py-3">
                 <p className="font-medium text-neutral-900">{u.name}</p>
                 <p className="text-[12px] text-neutral-500">{u.email}</p>
+              </td>
+              <td className="px-4 py-3 text-[12px] text-neutral-500">
+                {u.createdAt
+                  ? new Date(u.createdAt).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })
+                  : "—"}
               </td>
               <td className="px-4 py-3">
                 <select

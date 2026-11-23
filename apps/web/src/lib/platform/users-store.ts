@@ -78,20 +78,54 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(prev, next);
 }
 
-async function readFile(): Promise<UsersFile> {
-  await ensureDir();
+async function readLocalFile(): Promise<UsersFile | null> {
   try {
     const raw = await fs.readFile(USERS_PATH(), "utf8");
-    return JSON.parse(raw) as UsersFile;
+    const parsed = JSON.parse(raw) as UsersFile;
+    if (!parsed || !Array.isArray(parsed.users)) return null;
+    return parsed;
   } catch {
-    const seed = await seedAdmin();
-    return seed;
+    return null;
   }
+}
+
+async function readFile(): Promise<UsersFile> {
+  await ensureDir();
+  const { fetchUsersCloud, mergeUsersFiles } = await import(
+    "@/lib/platform/users-cloud"
+  );
+  const [local, cloud] = await Promise.all([
+    readLocalFile(),
+    fetchUsersCloud(),
+  ]);
+
+  // Vercel /tmp is empty on cold start — restore from durable cloud first
+  if (!local && cloud.users.length > 0) {
+    await fs.writeFile(USERS_PATH(), JSON.stringify(cloud, null, 2), "utf8");
+    return cloud;
+  }
+  if (!local) {
+    return seedAdmin();
+  }
+
+  const merged = mergeUsersFiles(cloud, local);
+  // Keep local warm cache in sync when cloud has extra signups
+  if (merged.users.length !== local.users.length) {
+    await fs.writeFile(USERS_PATH(), JSON.stringify(merged, null, 2), "utf8");
+  }
+  return merged;
 }
 
 async function writeFile(data: UsersFile) {
   await ensureDir();
-  await fs.writeFile(USERS_PATH(), JSON.stringify(data, null, 2), "utf8");
+  const { fetchUsersCloud, mergeUsersFiles, uploadUsersCloud } = await import(
+    "@/lib/platform/users-cloud"
+  );
+  // Merge with cloud so one serverless instance cannot wipe another signup
+  const cloud = await fetchUsersCloud();
+  const merged = mergeUsersFiles(cloud, data);
+  await fs.writeFile(USERS_PATH(), JSON.stringify(merged, null, 2), "utf8");
+  await uploadUsersCloud(merged);
 }
 
 async function seedAdmin(): Promise<UsersFile> {
