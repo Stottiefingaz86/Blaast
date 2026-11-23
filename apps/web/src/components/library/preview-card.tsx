@@ -143,6 +143,15 @@ export function PreviewCard({
               )}
             />
           )}
+          {playing && hero.videoUrl && !ready && (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center bg-black/30"
+              aria-busy
+              aria-label="Loading video"
+            >
+              <span className="size-8 animate-pulse rounded-full bg-white/25 ring-2 ring-white/40" />
+            </div>
+          )}
         </div>
       </div>
       <div className="flex items-start gap-2.5 px-1">

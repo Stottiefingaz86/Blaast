@@ -35,6 +35,7 @@ export function CaptureMedia({
 }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
+  const [buffering, setBuffering] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
 
   const startMs = clipWindow?.startMs ?? atMs ?? 0;
@@ -50,11 +51,13 @@ export function CaptureMedia({
   useEffect(() => {
     setPosterFailed(false);
     setReady(false);
+    setBuffering(Boolean(videoUrl));
   }, [posterUrl, videoUrl, startMs]);
 
   useEffect(() => {
     if (!loadVideo) {
       setReady(false);
+      setBuffering(false);
       return;
     }
     const v = ref.current;
@@ -71,13 +74,28 @@ export function CaptureMedia({
       }
     };
     const onMeta = () => seek();
-    const onSeeked = () => setReady(true);
+    const onSeeked = () => {
+      setReady(true);
+      setBuffering(false);
+    };
+    const onWaiting = () => setBuffering(true);
+    const onPlaying = () => {
+      setReady(true);
+      setBuffering(false);
+    };
+    const onCanPlay = () => setBuffering(false);
 
     if (v.readyState >= 1) onMeta();
     else v.addEventListener("loadedmetadata", onMeta, { once: true });
     v.addEventListener("seeked", onSeeked);
+    v.addEventListener("waiting", onWaiting);
+    v.addEventListener("playing", onPlaying);
+    v.addEventListener("canplay", onCanPlay);
     return () => {
       v.removeEventListener("seeked", onSeeked);
+      v.removeEventListener("waiting", onWaiting);
+      v.removeEventListener("playing", onPlaying);
+      v.removeEventListener("canplay", onCanPlay);
     };
   }, [videoUrl, startMs, loadVideo]);
 
@@ -159,6 +177,15 @@ export function CaptureMedia({
             ready ? "opacity-100" : "opacity-0",
           )}
         />
+      )}
+      {(buffering || (loadVideo && !ready)) && (
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/25"
+          aria-busy
+          aria-label="Loading video"
+        >
+          <span className="size-8 animate-pulse rounded-full bg-white/25 ring-2 ring-white/40" />
+        </div>
       )}
       {!showPoster && !loadVideo && (
         <div className="flex size-full items-center justify-center text-[12px] text-white/35">
