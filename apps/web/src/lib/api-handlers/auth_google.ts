@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { isHttpsRequest, publicOrigin } from "@/lib/platform/public-origin";
 
 export const runtime = "nodejs";
-
-function originFrom(req: NextRequest) {
-  const proto = req.headers.get("x-forwarded-proto") ?? "http";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  return host ? `${proto}://${host}` : "http://localhost:3000";
-}
 
 /** Start Google OAuth — requires GOOGLE_CLIENT_ID (+ secret for callback). */
 export async function GET(req: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const origin = originFrom(req);
+  const origin = publicOrigin(req);
   if (!clientId) {
     return NextResponse.redirect(
       `${origin}/login?error=${encodeURIComponent("Google sign-in is not configured yet (GOOGLE_CLIENT_ID)")}`,
@@ -28,12 +23,14 @@ export async function GET(req: NextRequest) {
   url.searchParams.set("access_type", "online");
   url.searchParams.set("prompt", "select_account");
   url.searchParams.set("state", state);
+  // Force account picker + consent so signup path is clear
+  url.searchParams.set("include_granted_scopes", "true");
 
   const res = NextResponse.redirect(url.toString());
   res.cookies.set("blaast_oauth_state", state, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: isHttpsRequest(req),
     path: "/",
     maxAge: 600,
   });

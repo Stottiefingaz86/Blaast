@@ -22,7 +22,6 @@ import {
 import { BlaastMark } from "@/components/brand/blaast-mark";
 import { AccountMenu } from "@/components/library/account-menu";
 import { useSession } from "@/lib/library/session";
-import { useAccountOptional } from "@/lib/platform/account-store";
 import { cn } from "@/lib/utils";
 import type { DiscoverTab } from "@/lib/library/taxonomy-nav";
 
@@ -94,9 +93,8 @@ export function SiteHeader({
   onSearchOpen?: () => void;
   className?: string;
 }) {
-  const { loggedIn } = useSession();
-  const account = useAccountOptional();
-  const isAdmin = Boolean(account?.isAdmin);
+  const { loggedIn, user } = useSession();
+  const isAdmin = user?.role === "owner" || user?.role === "admin";
 
   return (
     <div

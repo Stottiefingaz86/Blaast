@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/platform/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -227,6 +228,13 @@ async function dispatch(req: NextRequest, method: keyof Handlers) {
     .replace(/^\/api\/?/, "")
     .split("/")
     .filter(Boolean);
+  // Hard gate: every /api/admin/* requires owner/admin session
+  if (parts[0] === "admin") {
+    const admin = await requireAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
   for (const route of routes) {
     const params = route.match(parts);
     if (!params) continue;

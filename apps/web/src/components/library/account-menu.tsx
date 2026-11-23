@@ -42,18 +42,12 @@ export function AccountMenu({
   const { logout, user } = useSession();
   const account = useAccountOptional();
   const planLabel = (user?.plan ?? account?.plan ?? "free").toUpperCase();
-  const isAdmin =
-    user?.role === "owner" ||
-    user?.role === "admin" ||
-    Boolean(account?.isAdmin);
+  // Server session only — never trust demo localStorage for admin
+  const isAdmin = user?.role === "owner" || user?.role === "admin";
   const displayName = user?.name ?? account?.self?.name ?? "You";
   const displayEmail = user?.email ?? account?.self?.email ?? "signed out";
   const roleLabel =
-    user?.role === "owner" || account?.self?.role === "owner"
-      ? "Owner"
-      : user?.role === "admin" || account?.self?.role === "admin"
-        ? "Admin"
-        : null;
+    user?.role === "owner" ? "Owner" : user?.role === "admin" ? "Admin" : null;
   const initialLetter = (displayName || displayEmail || "Y")
     .trim()
     .charAt(0)

@@ -8,6 +8,32 @@ const USERS_PATH = () => path.join(dataDir(), "platform-users.json");
 
 export type PlatformRole = "owner" | "admin" | "member";
 
+/** Only these emails may hold owner/admin. Everyone else is forced to member. */
+export function elevatedEmailAllowlist(): Set<string> {
+  const raw = [
+    process.env.BLAAST_OWNER_EMAIL ?? "",
+    process.env.BLAAST_ADMIN_EMAILS ?? "",
+  ]
+    .join(",")
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.includes("@"));
+  return new Set(raw);
+}
+
+function canElevate(email: string): boolean {
+  const allow = elevatedEmailAllowlist();
+  if (allow.size === 0) return false;
+  return allow.has(email.trim().toLowerCase());
+}
+
+/** Strip stolen/stale owner|admin roles from non-allowlisted accounts. */
+export function enforceRolePolicy(user: PlatformUser): PlatformUser {
+  if (user.role === "member") return user;
+  if (canElevate(user.email)) return user;
+  return { ...user, role: "member" };
+}
+
 export type PlatformUser = {
   id: string;
   email: string;
@@ -91,26 +117,41 @@ async function seedAdmin(): Promise<UsersFile> {
 export type PublicUser = Omit<PlatformUser, "passwordHash">;
 
 export function toPublic(u: PlatformUser): PublicUser {
-  const { passwordHash: _, ...rest } = u;
+  const safe = enforceRolePolicy(u);
+  const { passwordHash: _, ...rest } = safe;
   return rest;
 }
 
+async function persistRoleDemotions(data: UsersFile): Promise<UsersFile> {
+  let dirty = false;
+  for (const u of data.users) {
+    if (u.role !== "member" && !canElevate(u.email)) {
+      u.role = "member";
+      dirty = true;
+    }
+  }
+  if (dirty) await writeFile(data);
+  return data;
+}
+
 export async function listUsers(): Promise<PublicUser[]> {
-  const data = await readFile();
+  const data = await persistRoleDemotions(await readFile());
   return data.users.map(toPublic);
 }
 
 export async function getUserById(id: string): Promise<PlatformUser | null> {
-  const data = await readFile();
-  return data.users.find((u) => u.id === id) ?? null;
+  const data = await persistRoleDemotions(await readFile());
+  const user = data.users.find((u) => u.id === id) ?? null;
+  return user ? enforceRolePolicy(user) : null;
 }
 
 export async function getUserByEmail(
   email: string,
 ): Promise<PlatformUser | null> {
-  const data = await readFile();
+  const data = await persistRoleDemotions(await readFile());
   const key = email.trim().toLowerCase();
-  return data.users.find((u) => u.email.toLowerCase() === key) ?? null;
+  const user = data.users.find((u) => u.email.toLowerCase() === key) ?? null;
+  return user ? enforceRolePolicy(user) : null;
 }
 
 export async function createUser(input: {
@@ -210,6 +251,11 @@ export async function upsertOwnerAdmin(input: {
   plan?: PlanId;
 }): Promise<PublicUser> {
   const email = input.email.trim().toLowerCase();
+  if (!canElevate(email)) {
+    throw new Error(
+      "Email is not on BLAAST_OWNER_EMAIL / BLAAST_ADMIN_EMAILS allowlist",
+    );
+  }
   const data = await readFile();
   const existing = data.users.find((u) => u.email.toLowerCase() === email);
   const now = new Date().toISOString();
@@ -250,6 +296,10 @@ export async function upsertOAuthUser(input: {
   const now = new Date().toISOString();
   if (existing) {
     existing.lastLoginAt = now;
+    // Never elevate via OAuth — demote stale owner/admin if not allowlisted
+    if (existing.role !== "member" && !canElevate(existing.email)) {
+      existing.role = "member";
+    }
     if (input.name?.trim() && existing.name === existing.email.split("@")[0]) {
       existing.name = input.name.trim();
     }
