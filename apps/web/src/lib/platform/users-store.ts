@@ -24,16 +24,20 @@ export function elevatedEmailAllowlist(): Set<string> {
 
 function canElevate(email: string): boolean {
   const allow = elevatedEmailAllowlist();
-  if (allow.size === 0) return false;
+  // No allowlist configured → do not lock out the founder (dev / unset prod).
+  if (allow.size === 0) return true;
   return allow.has(email.trim().toLowerCase());
 }
 
 /**
  * Strip stolen owner/admin from non-allowlisted accounts.
  * Curator is intentional (assigned by owner) — leave it alone.
+ * When BLAAST_OWNER_EMAIL / BLAAST_ADMIN_EMAILS are unset, roles are left alone.
  */
 export function enforceRolePolicy(user: PlatformUser): PlatformUser {
   if (user.role === "member" || user.role === "curator") return user;
+  const allow = elevatedEmailAllowlist();
+  if (allow.size === 0) return user;
   if (canElevate(user.email)) return user;
   return { ...user, role: "member" };
 }
@@ -127,6 +131,9 @@ export function toPublic(u: PlatformUser): PublicUser {
 }
 
 async function persistRoleDemotions(data: UsersFile): Promise<UsersFile> {
+  const allow = elevatedEmailAllowlist();
+  // Unset allowlist must not wipe owner/admin (that caused founder lockout).
+  if (allow.size === 0) return data;
   let dirty = false;
   for (const u of data.users) {
     if (
@@ -312,6 +319,16 @@ export async function upsertOwnerAdmin(input: {
   return toPublic(user);
 }
 
+function oauthBootstrapRole(email: string): PlatformRole {
+  const owner = (process.env.BLAAST_OWNER_EMAIL ?? "").trim().toLowerCase();
+  if (owner && email === owner) return "owner";
+  const admins = elevatedEmailAllowlist();
+  if (admins.size > 0 && admins.has(email)) {
+    return email === owner ? "owner" : "admin";
+  }
+  return "member";
+}
+
 /** Find-or-create from Google (or other OAuth) — no password. */
 export async function upsertOAuthUser(input: {
   email: string;
@@ -321,14 +338,21 @@ export async function upsertOAuthUser(input: {
   const data = await readFile();
   const existing = data.users.find((u) => u.email.toLowerCase() === email);
   const now = new Date().toISOString();
+  const bootRole = oauthBootstrapRole(email);
   if (existing) {
     existing.lastLoginAt = now;
-    // Never elevate via OAuth — demote stale owner/admin if not allowlisted
+    const allow = elevatedEmailAllowlist();
     if (
+      allow.size > 0 &&
       (existing.role === "owner" || existing.role === "admin") &&
       !canElevate(existing.email)
     ) {
       existing.role = "member";
+    }
+    // Restore founder / allowlisted staff after accidental demotion
+    if (bootRole === "owner" || bootRole === "admin") {
+      existing.role = bootRole;
+      if (existing.plan === "free") existing.plan = "pro";
     }
     if (input.name?.trim() && existing.name === existing.email.split("@")[0]) {
       existing.name = input.name.trim();
@@ -341,8 +365,8 @@ export async function upsertOAuthUser(input: {
     email,
     name: input.name?.trim() || email.split("@")[0] || "Member",
     passwordHash: hashPassword(randomBytes(24).toString("hex")),
-    plan: "free",
-    role: "member",
+    plan: bootRole === "member" ? "free" : "pro",
+    role: bootRole,
     createdAt: now,
     lastLoginAt: now,
     mcpActivatedAt: null,
