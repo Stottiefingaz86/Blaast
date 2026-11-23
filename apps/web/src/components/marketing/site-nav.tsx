@@ -28,9 +28,9 @@ export function MarketingNav({ solid }: { solid?: boolean }) {
         </Link>
 
         <nav className="ml-8 hidden items-center gap-6 sm:flex">
-          {/* Studio is P2 — keep off public marketing chrome until shipped */}
           {[
             { href: "/mcp", label: "MCP" },
+            { href: "/studio", label: "Studio", soon: true },
             { href: "/customers", label: "Customers" },
             { href: "/pricing", label: "Pricing" },
           ].map((l) => (
@@ -38,13 +38,18 @@ export function MarketingNav({ solid }: { solid?: boolean }) {
               key={l.href}
               href={l.href}
               className={cn(
-                "text-[14px] font-medium transition-colors",
+                "inline-flex items-center gap-1.5 text-[14px] font-medium transition-colors",
                 pathname === l.href || pathname.startsWith(`${l.href}/`)
                   ? "text-neutral-950"
                   : "text-neutral-500 hover:text-neutral-950",
               )}
             >
               {l.label}
+              {"soon" in l && l.soon ? (
+                <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
+                  Soon
+                </span>
+              ) : null}
             </Link>
           ))}
         </nav>

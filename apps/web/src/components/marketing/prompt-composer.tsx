@@ -4,7 +4,11 @@ import { ArrowUp, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
-import { SCENARIO_PROMPTS } from "@/lib/marketing/operator-logos";
+import {
+  SCENARIO_BRIEFS,
+  SCENARIO_PROMPTS,
+} from "@/lib/marketing/operator-logos";
+import { OperatorMark } from "@/components/marketing/operator-mark";
 
 export const DESIGN_PROMPTS = SCENARIO_PROMPTS;
 
@@ -111,14 +115,17 @@ export function PromptComposer({
       </div>
 
       <div className="mt-4 flex flex-wrap justify-center gap-2">
-        {DESIGN_PROMPTS.slice(0, 6).map((prompt) => (
+        {SCENARIO_BRIEFS.slice(0, 6).map(({ prompt, op }) => (
           <button
             key={prompt}
             type="button"
             onClick={() => submit(prompt)}
-            className="rounded-full border border-neutral-200 bg-white px-3.5 py-2 text-left text-[12px] font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 sm:text-[13px]"
+            className="inline-flex max-w-full items-center gap-2 rounded-full border border-neutral-200 bg-white py-1.5 pr-3.5 pl-1.5 text-left text-[12px] font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 sm:text-[13px]"
           >
-            {prompt}
+            <span className="relative size-6 shrink-0 overflow-hidden rounded-full ring-1 ring-black/[0.06]">
+              <OperatorMark op={op} />
+            </span>
+            <span className="truncate">{prompt}</span>
           </button>
         ))}
       </div>

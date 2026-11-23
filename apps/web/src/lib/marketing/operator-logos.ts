@@ -273,18 +273,29 @@ const FEATURED_SCENARIO_OPS = [
   "bet365",
 ] as const;
 
-/** Dozens of briefs across operators — not one brand story. */
-export const SCENARIO_PROMPTS: string[] = (() => {
+export type ScenarioBrief = {
+  prompt: string;
+  op: OperatorLogo;
+};
+
+/** Brief + matching operator mark — never pair Casumo copy with a bet365 logo. */
+export const SCENARIO_BRIEFS: ScenarioBrief[] = (() => {
   const byId = new Map(OPERATOR_LOGOS.map((o) => [o.id, o]));
   const featured = FEATURED_SCENARIO_OPS.map((id) => byId.get(id)).filter(
     Boolean,
   ) as typeof OPERATOR_LOGOS;
-  const out: string[] = [];
+  const out: ScenarioBrief[] = [];
 
   for (let i = 0; i < SCENARIO_TEMPLATES.length; i++) {
     const tmpl = SCENARIO_TEMPLATES[i]!;
     const op = featured[i % featured.length]!;
-    out.push(tmpl.replace("{name}", op.alt));
+    out.push({
+      prompt: tmpl.replace("{name}", op.alt),
+      op,
+    });
   }
   return out;
 })();
+
+/** Prompt strings for composers / rotating placeholders. */
+export const SCENARIO_PROMPTS: string[] = SCENARIO_BRIEFS.map((b) => b.prompt);

@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Library } from "lucide-react";
+import {
+  ArrowRight,
+  Library,
+  Microscope,
+  Radar,
+  Sparkles,
+  WandSparkles,
+} from "lucide-react";
 import { BlaastMark } from "@/components/brand/blaast-mark";
 import { MarketingNav } from "@/components/marketing/site-nav";
 import { AnimatedHeadline } from "@/components/marketing/animated-headline";
@@ -9,18 +16,14 @@ import { LogoWall } from "@/components/marketing/logo-wall";
 import { McpRotator } from "@/components/marketing/mcp-rotator";
 import { ProductPeekRail } from "@/components/marketing/product-peek-rail";
 import { PromptComposer } from "@/components/marketing/prompt-composer";
-import {
-  OPERATOR_LOGOS,
-  SCENARIO_PROMPTS,
-} from "@/lib/marketing/operator-logos";
+import { SCENARIO_BRIEFS } from "@/lib/marketing/operator-logos";
 import { OperatorMark } from "@/components/marketing/operator-mark";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/library/session";
 
 /**
- * Mobbin-clean lander:
- * hero = headline + sub + CTAs only.
- * Logos live in the headline; trust strip + briefs sit below the fold.
+ * Sales lander — Mobbin-clean hero, real operator briefs, product proof,
+ * Coming soon for Studio / Research.
  */
 export function Lander() {
   const router = useRouter();
@@ -34,7 +37,7 @@ export function Lander() {
     <div className="min-h-screen bg-white text-neutral-950">
       <MarketingNav solid />
 
-      {/* Hero — chunky type, rotating use-cases, operator bubbles */}
+      {/* Hero */}
       <section className="mx-auto flex max-w-[1040px] flex-col items-center px-6 pt-20 pb-16 text-center sm:pt-28 sm:pb-24">
         <div className="animate-fade-up">
           <AnimatedHeadline />
@@ -110,7 +113,7 @@ export function Lander() {
         </div>
       </section>
 
-      {/* Operator marquee — full bleed */}
+      {/* Operator marquee */}
       <section className="overflow-hidden border-b border-neutral-100 py-14">
         <p className="mb-8 text-center text-[11px] font-medium tracking-[0.16em] text-neutral-400 uppercase">
           Captured across operators
@@ -118,8 +121,85 @@ export function Lander() {
         <LogoWall />
       </section>
 
-      {/* Briefs */}
-      <section className="mx-auto max-w-[1000px] px-6 py-24 text-center">
+      {/* What we do */}
+      <section className="border-b border-neutral-100 bg-neutral-50/80">
+        <div className="mx-auto max-w-[1000px] px-6 py-20">
+          <p className="text-[11px] font-medium tracking-[0.16em] text-neutral-400 uppercase">
+            What Blaast does
+          </p>
+          <h2 className="mt-3 max-w-2xl text-[2rem] font-semibold tracking-tight text-neutral-950 sm:text-[2.35rem] sm:leading-[1.12]">
+            Evidence-backed iGaming design intelligence — not screenshots in a folder.
+          </h2>
+          <div className="mt-12 grid gap-10 sm:grid-cols-3">
+            {[
+              {
+                title: "Human-led capture",
+                body: "Researchers walk real sportsbooks and casinos. You get reviewed screens, UI elements, and flows — with timestamps, trims, and provenance.",
+              },
+              {
+                title: "Mobbin-style library",
+                body: "Filter by betslip, header, lobby, KYC, region, and platform. Hover to play the exact moment — not a random hero reel.",
+              },
+              {
+                title: "Agent-ready MCP",
+                body: "One URL for Cursor, Claude, and ChatGPT. Search screens and flows from your agent with evidence IDs you can cite.",
+              },
+            ].map((c) => (
+              <div key={c.title}>
+                <h3 className="text-[17px] font-semibold tracking-tight">
+                  {c.title}
+                </h3>
+                <p className="mt-2.5 text-[15px] leading-relaxed text-neutral-500">
+                  {c.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="border-b border-neutral-100">
+        <div className="mx-auto max-w-[1000px] px-6 py-20">
+          <h2 className="text-[2rem] font-semibold tracking-tight text-neutral-950 sm:text-[2.35rem]">
+            Real browsers. Tagged journeys. Ship under your brand.
+          </h2>
+          <ol className="mt-12 grid gap-8 sm:grid-cols-3">
+            {[
+              {
+                n: "01",
+                title: "Capture the journey",
+                body: "Onboarding, deposit, betslip, racing, VIP — walked in market, reviewed, and rights-cleared before it hits the library.",
+              },
+              {
+                n: "02",
+                title: "Browse like Mobbin",
+                body: "Operators, screens, UI elements, and flows in one grid. Filter to the pattern you need; copy a brief into Studio later.",
+              },
+              {
+                n: "03",
+                title: "Brief your stack",
+                body: "Drop patterns into Cursor via MCP or open a library brief. Customer tokens always outrank competitor styling.",
+              },
+            ].map((s) => (
+              <li key={s.n}>
+                <p className="text-[12px] font-medium tracking-wide text-neutral-400">
+                  {s.n}
+                </p>
+                <h3 className="mt-2 text-[17px] font-semibold tracking-tight">
+                  {s.title}
+                </h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-neutral-500">
+                  {s.body}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* Briefs — matching logos */}
+      <section className="mx-auto max-w-[920px] px-6 py-24 text-center">
         <h2 className="text-[2rem] font-semibold tracking-tight text-neutral-950 sm:text-[2.5rem] sm:leading-[1.1]">
           Brief any pattern.
         </h2>
@@ -130,29 +210,81 @@ export function Lander() {
         <div className="mx-auto mt-10 max-w-xl text-left">
           <PromptComposer onSend={(prompt) => go(prompt)} />
         </div>
-        <div className="mt-14 grid text-left sm:grid-cols-2 sm:gap-x-10">
-          {SCENARIO_PROMPTS.slice(0, 16).map((prompt, i) => {
-            const op = OPERATOR_LOGOS[i % OPERATOR_LOGOS.length]!;
-            return (
+        <ul className="mt-12 grid gap-3 text-left sm:grid-cols-2">
+          {SCENARIO_BRIEFS.slice(0, 8).map(({ prompt, op }) => (
+            <li key={prompt}>
               <button
-                key={prompt}
                 type="button"
                 onClick={() => go(prompt)}
-                className="group flex items-center gap-3.5 border-b border-neutral-100 py-3.5 text-left transition-colors first:pt-0 hover:border-neutral-300"
+                className="group flex w-full items-center gap-3 rounded-2xl border border-neutral-200/90 bg-white px-3.5 py-3 text-left shadow-[0_1px_0_rgba(0,0,0,0.03)] transition hover:border-neutral-300 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
               >
-                <span className="relative size-9 shrink-0 overflow-hidden rounded-[11px] shadow-[0_3px_10px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.08]">
+                <span className="relative size-10 shrink-0 overflow-hidden rounded-[12px] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] ring-1 ring-black/[0.06]">
                   <OperatorMark op={op} />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-neutral-800 group-hover:text-neutral-950">
+                <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-neutral-800 group-hover:text-neutral-950 sm:text-[14px]">
                   {prompt}
                 </span>
                 <ArrowRight className="size-3.5 shrink-0 text-neutral-300 transition-transform group-hover:translate-x-0.5 group-hover:text-neutral-700" />
               </button>
-            );
-          })}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Coming soon */}
+      <section className="border-t border-neutral-100 bg-neutral-950 text-white">
+        <div className="mx-auto max-w-[1000px] px-6 py-20">
+          <p className="text-[11px] font-medium tracking-[0.16em] text-neutral-500 uppercase">
+            On the roadmap
+          </p>
+          <h2 className="mt-3 text-[2rem] font-semibold tracking-tight sm:text-[2.35rem]">
+            Coming soon
+          </h2>
+          <div className="mt-12 grid gap-6 sm:grid-cols-2">
+            <div className="rounded-3xl border border-white/[0.08] bg-white/[0.04] p-8">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12px] font-medium text-neutral-200">
+                <WandSparkles className="size-3.5" strokeWidth={1.75} />
+                Coming soon
+              </span>
+              <h3 className="mt-5 flex items-center gap-2 text-[1.35rem] font-semibold tracking-tight">
+                <Sparkles className="size-5 text-neutral-400" strokeWidth={1.75} />
+                Studio
+              </h3>
+              <p className="mt-3 text-[15px] leading-relaxed text-neutral-400">
+                Bring your brand tokens. Brief the agent with live operator
+                patterns — side navs, betslips, lobbies — and ship prototypes
+                under your design system.
+              </p>
+              <Link
+                href="/studio"
+                className="mt-6 inline-flex items-center gap-1.5 text-[14px] font-medium text-white hover:underline"
+              >
+                Preview Studio
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+            <div className="rounded-3xl border border-white/[0.08] bg-white/[0.04] p-8">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12px] font-medium text-neutral-200">
+                <Radar className="size-3.5" strokeWidth={1.75} />
+                Coming soon
+              </span>
+              <h3 className="mt-5 flex items-center gap-2 text-[1.35rem] font-semibold tracking-tight">
+                <Microscope className="size-5 text-neutral-400" strokeWidth={1.75} />
+                Research
+              </h3>
+              <p className="mt-3 text-[15px] leading-relaxed text-neutral-400">
+                Competitive audits, journey scores, and player CX benchmarks —
+                the Scuup-grade research layer on top of Blaast captures.
+              </p>
+              <span className="mt-6 inline-flex text-[14px] font-medium text-neutral-500">
+                Notify when live
+              </span>
+            </div>
+          </div>
         </div>
       </section>
 
+      {/* Product pillars */}
       <section className="border-t border-neutral-100">
         <div className="mx-auto grid max-w-[1000px] gap-12 px-6 py-20 sm:grid-cols-3">
           {[
@@ -181,6 +313,32 @@ export function Lander() {
         </div>
       </section>
 
+      {/* Final CTA */}
+      <section className="border-t border-neutral-100 bg-neutral-50">
+        <div className="mx-auto flex max-w-[720px] flex-col items-center px-6 py-20 text-center">
+          <h2 className="text-[2rem] font-semibold tracking-tight text-neutral-950 sm:text-[2.35rem]">
+            Stop guessing what world-class looks like.
+          </h2>
+          <p className="mt-4 text-[16px] leading-relaxed text-neutral-600">
+            Join the library free, or wire MCP into your design stack today.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href={loggedIn ? "/library" : "/login?mode=signup"}
+              className="inline-flex h-12 items-center rounded-full bg-neutral-950 px-7 text-[15px] font-medium text-white"
+            >
+              {loggedIn ? "Open library" : "Join for free"}
+            </Link>
+            <Link
+              href="/mcp"
+              className="inline-flex h-12 items-center rounded-full bg-white px-6 text-[15px] font-medium text-neutral-800 ring-1 ring-neutral-200"
+            >
+              Connect MCP
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <footer className="bg-neutral-950 px-6 py-14 text-white">
         <div className="mx-auto flex max-w-[1000px] flex-col gap-10 sm:flex-row sm:justify-between">
           <BlaastMark className="h-7" />
@@ -194,6 +352,9 @@ export function Lander() {
             <Link href="/library" className="hover:text-white">
               Library
             </Link>
+            <Link href="/studio" className="hover:text-white">
+              Studio
+            </Link>
             <Link href="/customers" className="hover:text-white">
               Customers
             </Link>
@@ -203,7 +364,7 @@ export function Lander() {
           </div>
         </div>
         <p className="mx-auto mt-12 max-w-[1000px] text-[12px] text-neutral-600">
-          © {new Date().getFullYear()}
+          © {new Date().getFullYear()} Blaast
         </p>
       </footer>
     </div>
