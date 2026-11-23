@@ -58,12 +58,31 @@ function defaultGuide(firstStepId: string | null): SessionGuide {
 
 export async function listOperators() {
   const store = await ensureStore();
-  return store.operators.sort((a, b) => a.name.localeCompare(b.name));
+  let cloud: Operator[] = [];
+  try {
+    const { listOperatorsCloud } = await import("@/lib/admin/operators-cloud");
+    cloud = await listOperatorsCloud();
+  } catch (err) {
+    console.error("[listOperators] cloud", err);
+  }
+  // Merge: local wins on id collision (dev), cloud fills Vercel /tmp gaps
+  const byId = new Map<string, Operator>();
+  for (const o of cloud) byId.set(o.id, o);
+  for (const o of store.operators) byId.set(o.id, o);
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getOperator(id: string) {
   const store = await ensureStore();
-  return store.operators.find((o) => o.id === id) ?? null;
+  const local = store.operators.find((o) => o.id === id);
+  if (local) return local;
+  try {
+    const { getOperatorCloud } = await import("@/lib/admin/operators-cloud");
+    return await getOperatorCloud(id);
+  } catch (err) {
+    console.error("[getOperator] cloud", err);
+    return null;
+  }
 }
 
 export async function createOperator(input: {
@@ -103,6 +122,12 @@ export async function createOperator(input: {
   };
   store.operators.push(operator);
   await writeStore(store);
+  try {
+    const { upsertOperatorCloud } = await import("@/lib/admin/operators-cloud");
+    await upsertOperatorCloud(operator);
+  } catch (err) {
+    console.error("[createOperator] cloud", err);
+  }
   return operator;
 }
 
@@ -124,9 +149,22 @@ export async function updateOperator(
   >,
 ) {
   const store = await ensureStore();
-  const idx = store.operators.findIndex((o) => o.id === id);
+  let idx = store.operators.findIndex((o) => o.id === id);
+  // On Vercel, operator may only exist in Supabase — hydrate local first
+  if (idx < 0) {
+    try {
+      const { getOperatorCloud } = await import("@/lib/admin/operators-cloud");
+      const cloud = await getOperatorCloud(id);
+      if (cloud) {
+        store.operators.push(cloud);
+        idx = store.operators.length - 1;
+      }
+    } catch (err) {
+      console.error("[updateOperator] cloud hydrate", err);
+    }
+  }
   if (idx < 0) return null;
-  const prev = store.operators[idx];
+  const prev = store.operators[idx]!;
   const next: Operator = {
     ...prev,
     ...patch,
@@ -137,6 +175,12 @@ export async function updateOperator(
   };
   store.operators[idx] = next;
   await writeStore(store);
+  try {
+    const { upsertOperatorCloud } = await import("@/lib/admin/operators-cloud");
+    await upsertOperatorCloud(next);
+  } catch (err) {
+    console.error("[updateOperator] cloud", err);
+  }
   // Segment / reference tier changes affect pattern aggregates
   if (
     patch.vertical !== undefined ||
