@@ -92,8 +92,8 @@ export type LibraryMediaItem = {
   taxonomy: string;
   tags: string[];
   hasVideo: boolean;
-  posterUrl: string;
-  videoUrl: string;
+  posterUrl?: string;
+  videoUrl?: string;
   sessionId: string;
   artifactId: string;
   coverageStepId?: string;
