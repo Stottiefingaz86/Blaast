@@ -261,7 +261,6 @@ const SCENARIO_TEMPLATES = [
 const FEATURED_SCENARIO_OPS = [
   "casumo",
   "mrgreen",
-  "stake",
   "leovegas",
   "winna",
   "pinnacle",
@@ -271,6 +270,7 @@ const FEATURED_SCENARIO_OPS = [
   "pokerstars",
   "roobet",
   "bet365",
+  "betway",
 ] as const;
 
 export type ScenarioBrief = {

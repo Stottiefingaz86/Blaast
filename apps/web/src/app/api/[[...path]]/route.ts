@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/platform/auth";
+import { requireAdmin, requireStaff } from "@/lib/platform/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -228,10 +228,12 @@ async function dispatch(req: NextRequest, method: keyof Handlers) {
     .replace(/^\/api\/?/, "")
     .split("/")
     .filter(Boolean);
-  // Hard gate: every /api/admin/* requires owner/admin session
+  // Hard gate admin APIs: users/analytics = owner/admin; rest = staff (incl. curator)
   if (parts[0] === "admin") {
-    const admin = await requireAdmin();
-    if (!admin) {
+    const needsFullAdmin =
+      parts[1] === "users" || parts[1] === "analytics";
+    const gate = needsFullAdmin ? await requireAdmin() : await requireStaff();
+    if (!gate) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }

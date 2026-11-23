@@ -1,16 +1,27 @@
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import {
+  getSessionUser,
+  isPublisherRole,
+} from "@/lib/platform/auth";
 
-const links = [
+export {
+  adminOutlineBtn,
+  adminPrimaryBtn,
+} from "@/components/admin/admin-ui";
+
+const staffLinks = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/operators", label: "Sites" },
   { href: "/admin/playbooks", label: "Playbooks" },
+] as const;
+
+const publisherLinks = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/analytics", label: "Analytics" },
-];
+] as const;
 
 /** Internal capture desk — not shown to library customers. */
-export function AdminShell({
+export async function AdminShell({
   children,
   title,
   action,
@@ -19,6 +30,12 @@ export function AdminShell({
   title: string;
   action?: React.ReactNode;
 }) {
+  const user = await getSessionUser();
+  const publisher = isPublisherRole(user?.role);
+  const links = publisher
+    ? [...staffLinks, ...publisherLinks]
+    : [...staffLinks];
+
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-950">
       <header className="border-b border-black/[0.06] bg-white">
@@ -37,6 +54,11 @@ export function AdminShell({
               </Link>
             ))}
           </nav>
+          {user?.role === "curator" && (
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/80">
+              Curator · capture only
+            </span>
+          )}
           <Link
             href="/"
             className="ml-auto text-[12px] font-medium text-neutral-500 hover:text-neutral-900"
@@ -53,19 +75,5 @@ export function AdminShell({
         {children}
       </main>
     </div>
-  );
-}
-
-export function adminPrimaryBtn(className?: string) {
-  return cn(
-    "inline-flex h-9 items-center justify-center rounded-full bg-neutral-950 px-4 text-[13px] font-medium text-white hover:bg-neutral-800",
-    className,
-  );
-}
-
-export function adminOutlineBtn(className?: string) {
-  return cn(
-    "inline-flex h-9 items-center justify-center rounded-full border border-neutral-200 bg-white px-4 text-[13px] font-medium text-neutral-900 hover:bg-neutral-50",
-    className,
   );
 }

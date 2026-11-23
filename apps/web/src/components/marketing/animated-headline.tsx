@@ -5,6 +5,7 @@ import {
   OPERATOR_LOGOS,
   type OperatorLogo,
 } from "@/lib/marketing/operator-logos";
+import { shuffle } from "@/lib/marketing/shuffle";
 import { OperatorMark } from "@/components/marketing/operator-mark";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 function pickThree(exclude: string[] = []): [OperatorLogo, OperatorLogo, OperatorLogo] {
   const pool = OPERATOR_LOGOS.filter((o) => !exclude.includes(o.id));
   const source = pool.length >= 3 ? pool : OPERATOR_LOGOS;
-  const shuffled = [...source].sort(() => Math.random() - 0.5);
+  const shuffled = shuffle(source);
   return [shuffled[0]!, shuffled[1]!, shuffled[2]!];
 }
 
@@ -21,6 +22,7 @@ function pickThree(exclude: string[] = []): [OperatorLogo, OperatorLogo, Operato
  * Text never changes; marks randomly cycle across all operators.
  */
 export function AnimatedHeadline({ className }: { className?: string }) {
+  // Stable SSR seed — shuffle only after mount so hydration matches
   const [ops, setOps] = useState<[OperatorLogo, OperatorLogo, OperatorLogo]>(
     () => [OPERATOR_LOGOS[0]!, OPERATOR_LOGOS[1]!, OPERATOR_LOGOS[2]!],
   );

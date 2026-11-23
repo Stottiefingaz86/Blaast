@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   adminOutlineBtn,
   adminPrimaryBtn,
-} from "@/components/admin/admin-shell";
+} from "@/components/admin/admin-ui";
 import type {
   Operator,
   OperatorReferenceTier,

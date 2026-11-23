@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/platform/auth";
 import {
   listUsers,
   updateUserPlan,
+  updateUserRole,
+  type PlatformRole,
 } from "@/lib/platform/users-store";
 import type { PlanId } from "@/lib/platform/plans";
 
@@ -22,17 +24,36 @@ export async function PATCH(req: NextRequest) {
   if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  let body: { userId?: string; plan?: PlanId };
+  let body: { userId?: string; plan?: PlanId; role?: PlatformRole };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const plan = body.plan;
   const userId = body.userId;
-  if (!userId || !plan) {
+  if (!userId) {
+    return NextResponse.json({ error: "userId required" }, { status: 400 });
+  }
+
+  if (body.role) {
+    try {
+      const user = await updateUserRole(userId, body.role);
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      return NextResponse.json({ user });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Role update failed" },
+        { status: 400 },
+      );
+    }
+  }
+
+  const plan = body.plan;
+  if (!plan) {
     return NextResponse.json(
-      { error: "userId and plan required" },
+      { error: "plan or role required" },
       { status: 400 },
     );
   }

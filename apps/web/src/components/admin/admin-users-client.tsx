@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { PlanId } from "@/lib/platform/plans";
-import type { PublicUser } from "@/lib/platform/users-store";
+import type { PlatformRole, PublicUser } from "@/lib/platform/users-store";
 
 export function AdminUsersClient({
   initialUsers,
@@ -13,7 +13,10 @@ export function AdminUsersClient({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function setPlan(userId: string, plan: PlanId) {
+  async function patchUser(
+    userId: string,
+    body: { plan?: PlanId; role?: PlatformRole },
+  ) {
     setBusyId(userId);
     setError(null);
     try {
@@ -21,7 +24,7 @@ export function AdminUsersClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ userId, plan }),
+        body: JSON.stringify({ userId, ...body }),
       });
       const data = (await res.json()) as { user?: PublicUser; error?: string };
       if (!res.ok) {
@@ -45,6 +48,10 @@ export function AdminUsersClient({
           {error}
         </p>
       )}
+      <p className="border-b border-black/[0.04] bg-neutral-50 px-4 py-2.5 text-[12px] text-neutral-500">
+        Curators can capture and annotate. Only you (owner/admin) can Approve
+        &amp; publish to the library.
+      </p>
       <table className="w-full text-left text-[13px]">
         <thead className="border-b border-black/[0.06] text-[11px] tracking-wide text-neutral-400 uppercase">
           <tr>
@@ -70,7 +77,7 @@ export function AdminUsersClient({
                   value={u.plan}
                   disabled={busyId === u.id}
                   onChange={(e) =>
-                    void setPlan(u.id, e.target.value as PlanId)
+                    void patchUser(u.id, { plan: e.target.value as PlanId })
                   }
                   className="h-8 rounded-lg border border-neutral-200 bg-white px-2 text-[12px]"
                 >
@@ -80,8 +87,29 @@ export function AdminUsersClient({
                   <option value="enterprise">Enterprise</option>
                 </select>
               </td>
-              <td className="px-4 py-3 capitalize text-neutral-600">
-                {u.role}
+              <td className="px-4 py-3">
+                <select
+                  value={u.role}
+                  disabled={busyId === u.id || u.role === "owner"}
+                  onChange={(e) =>
+                    void patchUser(u.id, {
+                      role: e.target.value as PlatformRole,
+                    })
+                  }
+                  className="h-8 rounded-lg border border-neutral-200 bg-white px-2 text-[12px] capitalize"
+                  title={
+                    u.role === "owner"
+                      ? "Owner is fixed to the allowlisted account"
+                      : undefined
+                  }
+                >
+                  <option value="member">Member</option>
+                  <option value="curator">Curator</option>
+                  <option value="admin">Admin</option>
+                  {u.role === "owner" && (
+                    <option value="owner">Owner</option>
+                  )}
+                </select>
               </td>
               <td className="px-4 py-3 text-neutral-600">
                 {u.mcpActivatedAt ? (

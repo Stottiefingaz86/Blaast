@@ -11,6 +11,8 @@ type CoverSlot = {
   videoUrl?: string;
   operatorName?: string;
   operatorSlug?: string;
+  /** Capture form factor — lander must frame web vs mobile correctly */
+  platform: "mobile" | "web";
   mediaKey: string;
 };
 
@@ -50,6 +52,7 @@ function collectUniqueMedia(operators: CatalogOperator[]): CoverSlot[] {
       videoUrl,
       operatorName: op.name,
       operatorSlug: op.slug,
+      platform: op.platform,
       mediaKey: key,
     });
   };
@@ -120,8 +123,9 @@ function pickUniqueForSlots(
 export async function GET(req: NextRequest) {
   const mode =
     req.nextUrl.searchParams.get("mode") === "signup" ? "signup" : "login";
+  const platformFilter = req.nextUrl.searchParams.get("platform");
   const limit = Math.min(
-    24,
+    40,
     Math.max(4, Number(req.nextUrl.searchParams.get("limit") ?? "12") || 12),
   );
   const h = await headers();
@@ -130,7 +134,14 @@ export async function GET(req: NextRequest) {
   const origin = `${proto}://${host}`;
 
   const operators = await catalogFromPublished(origin);
-  const pool = shuffle(collectUniqueMedia(operators));
+  let all = collectUniqueMedia(operators);
+  if (platformFilter === "mobile" || platformFilter === "web") {
+    const filtered = all.filter((c) => c.platform === platformFilter);
+    if (filtered.length >= 3) all = filtered;
+  }
+  // Prefer clips that have video so the auth wall can loop motion
+  const withVideo = all.filter((c) => Boolean(c.videoUrl));
+  const pool = shuffle(withVideo.length >= 8 ? withVideo : all);
   const prefs = mode === "signup" ? SIGNUP_PREFS : LOGIN_PREFS;
 
   // Slot-labelled covers (login/signup collage) — always unique media

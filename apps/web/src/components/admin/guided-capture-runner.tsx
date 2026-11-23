@@ -7,7 +7,7 @@ import { Film, ExternalLink } from "lucide-react";
 import {
   adminOutlineBtn,
   adminPrimaryBtn,
-} from "@/components/admin/admin-shell";
+} from "@/components/admin/admin-ui";
 import { ClipReviewModal } from "@/components/admin/clip-review-modal";
 import { CaptureMedia } from "@/components/library/capture-media";
 import {
@@ -29,6 +29,8 @@ type Props = {
   initialSession: CaptureSession;
   operator: Operator;
   coverageSteps: CoverageStep[];
+  /** Owner/admin only — curators capture; you approve. */
+  canPublish?: boolean;
 };
 
 /**
@@ -39,6 +41,7 @@ export function GuidedCaptureRunner({
   initialSession,
   operator,
   coverageSteps,
+  canPublish = false,
 }: Props) {
   const [session, setSession] = useState(initialSession);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -425,27 +428,39 @@ export function GuidedCaptureRunner({
                 >
                   Open clip &amp; tag
                 </button>
-                <button
-                  type="button"
-                  disabled={selected.reviewStatus === "approved"}
-                  className={
-                    selected.reviewStatus === "approved"
-                      ? "inline-flex h-9 items-center rounded-full bg-emerald-100 px-4 text-[13px] font-semibold text-emerald-800"
-                      : "inline-flex h-9 items-center rounded-full bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700"
-                  }
-                  onClick={() => void reviewArtifact(selected, "approved")}
-                >
-                  {selected.reviewStatus === "approved"
-                    ? "Approved ✓"
-                    : "Approve & publish"}
-                </button>
-                <button
-                  type="button"
-                  className={adminOutlineBtn("h-9 px-4 text-[13px]")}
-                  onClick={() => void reviewArtifact(selected, "rejected")}
-                >
-                  Reject
-                </button>
+                {canPublish ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={selected.reviewStatus === "approved"}
+                      className={
+                        selected.reviewStatus === "approved"
+                          ? "inline-flex h-9 items-center rounded-full bg-emerald-100 px-4 text-[13px] font-semibold text-emerald-800"
+                          : "inline-flex h-9 items-center rounded-full bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                      }
+                      onClick={() => void reviewArtifact(selected, "approved")}
+                    >
+                      {selected.reviewStatus === "approved"
+                        ? "Approved ✓"
+                        : "Approve & publish"}
+                    </button>
+                    <button
+                      type="button"
+                      className={adminOutlineBtn("h-9 px-4 text-[13px]")}
+                      onClick={() => void reviewArtifact(selected, "rejected")}
+                    >
+                      Reject
+                    </button>
+                  </>
+                ) : selected.reviewStatus === "approved" ? (
+                  <span className="inline-flex h-9 items-center rounded-full bg-emerald-100 px-4 text-[13px] font-semibold text-emerald-800">
+                    Approved ✓
+                  </span>
+                ) : (
+                  <span className="inline-flex h-9 items-center rounded-full bg-amber-50 px-4 text-[13px] font-medium text-amber-800 ring-1 ring-amber-200/80">
+                    Awaiting admin approval
+                  </span>
+                )}
                 <button
                   type="button"
                   className="inline-flex h-9 items-center rounded-full px-3 text-[13px] font-medium text-red-600 hover:bg-red-50"
@@ -470,7 +485,11 @@ export function GuidedCaptureRunner({
               ?.instruction ?? "Clip"
           }
           onClose={() => setReviewOpen(false)}
-          onApprove={() => void reviewArtifact(selected, "approved")}
+          onApprove={
+            canPublish
+              ? () => void reviewArtifact(selected, "approved")
+              : undefined
+          }
           onDelete={() => {
             void deleteClip(selected);
             setReviewOpen(false);

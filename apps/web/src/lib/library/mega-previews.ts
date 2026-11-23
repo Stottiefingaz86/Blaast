@@ -3,6 +3,7 @@
  */
 
 import { logoCandidates } from "@/lib/marketing/operator-logos";
+import { shuffle } from "@/lib/marketing/shuffle";
 
 export type MegaPreview = {
   name: string;
@@ -86,6 +87,7 @@ export const MEGA_PREVIEWS: Record<string, MegaPreview[]> = {
   "Cash out": sportsbook,
 };
 
+/** Fresh random order every call — never leave bet365 stuck first. */
 export function previewsForLabel(label: string): MegaPreview[] {
-  return MEGA_PREVIEWS[label] ?? sportsbook;
+  return shuffle(MEGA_PREVIEWS[label] ?? sportsbook);
 }

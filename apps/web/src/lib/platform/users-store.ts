@@ -6,9 +6,10 @@ import type { PlanId } from "@/lib/platform/plans";
 
 const USERS_PATH = () => path.join(dataDir(), "platform-users.json");
 
-export type PlatformRole = "owner" | "admin" | "member";
+/** owner/admin = full ops + approve. curator = capture only (no publish). */
+export type PlatformRole = "owner" | "admin" | "curator" | "member";
 
-/** Only these emails may hold owner/admin. Everyone else is forced to member. */
+/** Only these emails may hold owner/admin. Curators are assigned in Admin → Users. */
 export function elevatedEmailAllowlist(): Set<string> {
   const raw = [
     process.env.BLAAST_OWNER_EMAIL ?? "",
@@ -27,9 +28,12 @@ function canElevate(email: string): boolean {
   return allow.has(email.trim().toLowerCase());
 }
 
-/** Strip stolen/stale owner|admin roles from non-allowlisted accounts. */
+/**
+ * Strip stolen owner/admin from non-allowlisted accounts.
+ * Curator is intentional (assigned by owner) — leave it alone.
+ */
 export function enforceRolePolicy(user: PlatformUser): PlatformUser {
-  if (user.role === "member") return user;
+  if (user.role === "member" || user.role === "curator") return user;
   if (canElevate(user.email)) return user;
   return { ...user, role: "member" };
 }
@@ -125,13 +129,36 @@ export function toPublic(u: PlatformUser): PublicUser {
 async function persistRoleDemotions(data: UsersFile): Promise<UsersFile> {
   let dirty = false;
   for (const u of data.users) {
-    if (u.role !== "member" && !canElevate(u.email)) {
+    if (
+      (u.role === "owner" || u.role === "admin") &&
+      !canElevate(u.email)
+    ) {
       u.role = "member";
       dirty = true;
     }
   }
   if (dirty) await writeFile(data);
   return data;
+}
+
+export async function updateUserRole(
+  userId: string,
+  role: PlatformRole,
+): Promise<PublicUser | null> {
+  if (!["owner", "admin", "curator", "member"].includes(role)) return null;
+  const data = await readFile();
+  const row = data.users.find((u) => u.id === userId);
+  if (!row) return null;
+  if (role === "owner" || role === "admin") {
+    if (!canElevate(row.email)) {
+      throw new Error(
+        "Only allowlisted emails can be owner/admin — use Curator for capture staff",
+      );
+    }
+  }
+  row.role = role;
+  await writeFile(data);
+  return toPublic(row);
 }
 
 export async function listUsers(): Promise<PublicUser[]> {
@@ -297,7 +324,10 @@ export async function upsertOAuthUser(input: {
   if (existing) {
     existing.lastLoginAt = now;
     // Never elevate via OAuth — demote stale owner/admin if not allowlisted
-    if (existing.role !== "member" && !canElevate(existing.email)) {
+    if (
+      (existing.role === "owner" || existing.role === "admin") &&
+      !canElevate(existing.email)
+    ) {
       existing.role = "member";
     }
     if (input.name?.trim() && existing.name === existing.email.split("@")[0]) {

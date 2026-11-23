@@ -234,6 +234,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const self = useMemo(() => resolveSelf(state.members), [state.members]);
+  /** Demo localStorage only — never use for capture desk / publish gates. */
   const isAdmin = self?.role === "owner" || self?.role === "admin";
 
   const value = useMemo<AccountApi>(

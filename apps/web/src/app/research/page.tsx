@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/library/site-header";
 import { useSession } from "@/lib/library/session";
 
-/** Scuup-style research — placeholder until P1. */
+/** Research surface — placeholder until the research layer ships. */
 export default function ResearchPage() {
   const { loggedIn, ready } = useSession();
   const router = useRouter();
@@ -36,7 +36,7 @@ export default function ResearchPage() {
           Research
         </h1>
         <p className="mt-3 text-[15px] leading-relaxed text-neutral-400">
-          Competitive UX audits, journey evidence, and Scuup-style research on
+          Competitive UX audits, journey evidence, and player CX benchmarks on
           the same captures as Library. Not built yet.
         </p>
         <Link

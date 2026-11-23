@@ -61,8 +61,7 @@ export async function GET(req: NextRequest) {
     try {
       const body = (await tokenRes.json()) as { error?: string; error_description?: string };
       if (body.error === "redirect_uri_mismatch") {
-        detail =
-          "Redirect URI mismatch — add https://blaast-five.vercel.app/api/auth/google/callback in Google Cloud";
+        detail = `Redirect URI mismatch — add this exact URI in Google Cloud: ${redirectUri}`;
       } else if (body.error_description) {
         detail = body.error_description.slice(0, 160);
       } else if (body.error) {

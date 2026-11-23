@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   adminOutlineBtn,
   adminPrimaryBtn,
-} from "@/components/admin/admin-shell";
+} from "@/components/admin/admin-ui";
 import { normalizeSiteUrl } from "@/lib/admin/normalize-url";
 import { suggestFromHostname } from "@/lib/admin/operator-directory";
 import { cn } from "@/lib/utils";

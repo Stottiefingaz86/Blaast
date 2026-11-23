@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   adminOutlineBtn,
   adminPrimaryBtn,
-} from "@/components/admin/admin-shell";
+} from "@/components/admin/admin-ui";
 import { ClipReviewModal } from "@/components/admin/clip-review-modal";
 import { CaptureMedia } from "@/components/library/capture-media";
 import type {
@@ -25,10 +25,13 @@ export function CaptureRunner({
   initialSession,
   operator,
   playbook,
+  canPublish = false,
 }: {
   initialSession: CaptureSession;
   operator: Operator;
   playbook: CapturePlaybook;
+  /** Owner/admin only — curators capture; you approve. */
+  canPublish?: boolean;
 }) {
   const [session, setSession] = useState(initialSession);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -377,27 +380,39 @@ export function CaptureRunner({
                   >
                     Open clip &amp; tag
                   </button>
-                  <button
-                    type="button"
-                    disabled={selected.reviewStatus === "approved"}
-                    className={
-                      selected.reviewStatus === "approved"
-                        ? "inline-flex h-9 items-center rounded-full bg-emerald-100 px-4 text-[13px] font-semibold text-emerald-800"
-                        : "inline-flex h-9 items-center rounded-full bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700"
-                    }
-                    onClick={() => void reviewArtifact(selected, "approved")}
-                  >
-                    {selected.reviewStatus === "approved"
-                      ? "Approved ✓"
-                      : "Approve & publish"}
-                  </button>
-                  <button
-                    type="button"
-                    className={adminOutlineBtn("h-9 px-4 text-[13px]")}
-                    onClick={() => void reviewArtifact(selected, "rejected")}
-                  >
-                    Reject
-                  </button>
+                  {canPublish ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={selected.reviewStatus === "approved"}
+                        className={
+                          selected.reviewStatus === "approved"
+                            ? "inline-flex h-9 items-center rounded-full bg-emerald-100 px-4 text-[13px] font-semibold text-emerald-800"
+                            : "inline-flex h-9 items-center rounded-full bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                        }
+                        onClick={() => void reviewArtifact(selected, "approved")}
+                      >
+                        {selected.reviewStatus === "approved"
+                          ? "Approved ✓"
+                          : "Approve & publish"}
+                      </button>
+                      <button
+                        type="button"
+                        className={adminOutlineBtn("h-9 px-4 text-[13px]")}
+                        onClick={() => void reviewArtifact(selected, "rejected")}
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : selected.reviewStatus === "approved" ? (
+                    <span className="inline-flex h-9 items-center rounded-full bg-emerald-100 px-4 text-[13px] font-semibold text-emerald-800">
+                      Approved ✓
+                    </span>
+                  ) : (
+                    <span className="inline-flex h-9 items-center rounded-full bg-amber-50 px-4 text-[13px] font-medium text-amber-800 ring-1 ring-amber-200/80">
+                      Awaiting admin approval
+                    </span>
+                  )}
                   <button
                     type="button"
                     disabled={enrichBusy}
@@ -516,7 +531,11 @@ export function CaptureRunner({
           }
           onClose={() => setReviewOpen(false)}
           onSession={setSession}
-          onApprove={() => void reviewArtifact(selected, "approved")}
+          onApprove={
+            canPublish
+              ? () => void reviewArtifact(selected, "approved")
+              : undefined
+          }
         />
       )}
     </div>

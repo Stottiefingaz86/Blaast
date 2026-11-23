@@ -10,6 +10,7 @@ import {
   setArtifactReview,
 } from "@/lib/admin/store";
 import type { CaptureAnnotation } from "@/lib/admin/types";
+import { requireAdmin } from "@/lib/platform/auth";
 
 export async function GET(
   req: Request,
@@ -154,6 +155,19 @@ export async function PATCH(
       { error: "reviewStatus, annotations, or clipWindow required" },
       { status: 400 },
     );
+  }
+  // Curators capture; only owner/admin may Approve & publish to the library
+  if (body.reviewStatus === "approved") {
+    const admin = await requireAdmin();
+    if (!admin) {
+      return NextResponse.json(
+        {
+          error:
+            "Only an owner/admin can Approve & publish. Submit the clip for review instead.",
+        },
+        { status: 403 },
+      );
+    }
   }
   const session = await setArtifactReview(id, artifactId, body.reviewStatus);
   if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 });

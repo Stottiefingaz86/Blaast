@@ -94,7 +94,11 @@ export function SiteHeader({
   className?: string;
 }) {
   const { loggedIn, user } = useSession();
-  const isAdmin = user?.role === "owner" || user?.role === "admin";
+  const isStaff =
+    user?.role === "owner" ||
+    user?.role === "admin" ||
+    user?.role === "curator";
+  const isPublisher = user?.role === "owner" || user?.role === "admin";
 
   return (
     <div
@@ -164,12 +168,12 @@ export function SiteHeader({
             <IconBtn label="Notifications">
               <Bell className="size-4" strokeWidth={1.75} />
             </IconBtn>
-            {isAdmin && (
+            {isStaff && (
               <Link
                 href="/admin"
                 className="ml-1 hidden h-8 items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 sm:inline-flex"
               >
-                Admin
+                {isPublisher ? "Admin" : "Capture"}
               </Link>
             )}
             <Link

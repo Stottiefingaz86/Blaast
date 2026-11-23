@@ -31,7 +31,7 @@ export function MarketingNav({ solid }: { solid?: boolean }) {
           {[
             { href: "/mcp", label: "MCP" },
             { href: "/studio", label: "Studio", soon: true },
-            { href: "/customers", label: "Customers" },
+            { href: "/research", label: "Research", soon: true },
             { href: "/pricing", label: "Pricing" },
           ].map((l) => (
             <Link

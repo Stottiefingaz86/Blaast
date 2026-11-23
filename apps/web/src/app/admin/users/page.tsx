@@ -14,8 +14,9 @@ export default async function AdminUsersPage() {
   return (
     <AdminShell title="Users & plans">
       <p className="max-w-2xl text-[13px] text-neutral-500">
-        Signups land on Free. Change plans here manually — there is no
-        self-serve upgrade for customers.
+        Signups land on Free. Promote capture staff to Curator — they create
+        content; only you Approve &amp; publish. Owner/admin stays on the
+        allowlisted account.
       </p>
       <AdminUsersClient initialUsers={users} />
     </AdminShell>

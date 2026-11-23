@@ -1,21 +1,30 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { OPERATOR_LOGOS } from "@/lib/marketing/operator-logos";
+import { shuffle } from "@/lib/marketing/shuffle";
 import { OperatorMark } from "@/components/marketing/operator-mark";
 import { cn } from "@/lib/utils";
 
-/** Two-row infinite marquee of operator marks. */
+function splitRows(logos: typeof OPERATOR_LOGOS) {
+  const mid = Math.ceil(logos.length / 2);
+  return { rowA: logos.slice(0, mid), rowB: logos.slice(mid) };
+}
+
+/** Two-row infinite marquee — reshuffled after mount so bet365 isn’t always first. */
 export function LogoWall({ className }: { className?: string }) {
-  const mid = Math.ceil(OPERATOR_LOGOS.length / 2);
-  const rowA = OPERATOR_LOGOS.slice(0, mid);
-  const rowB = OPERATOR_LOGOS.slice(mid);
+  const [rows, setRows] = useState(() => splitRows(OPERATOR_LOGOS));
+
+  useEffect(() => {
+    setRows(splitRows(shuffle(OPERATOR_LOGOS)));
+  }, []);
 
   return (
     <div className={cn("relative w-full space-y-3.5", className)}>
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-white to-transparent sm:w-24" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white to-transparent sm:w-24" />
-      <MarqueeRow logos={rowA} duration={55} />
-      <MarqueeRow logos={rowB} duration={65} reverse />
+      <MarqueeRow logos={rows.rowA} duration={55} />
+      <MarqueeRow logos={rows.rowB} duration={65} reverse />
     </div>
   );
 }

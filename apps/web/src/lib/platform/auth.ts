@@ -82,11 +82,34 @@ export async function getSessionUser(): Promise<PublicUser | null> {
   return toPublic(user);
 }
 
+/** Full admin — Users, Analytics, Approve & publish. */
 export async function requireAdmin(): Promise<PublicUser | null> {
   const user = await getSessionUser();
   if (!user) return null;
   if (user.role !== "owner" && user.role !== "admin") return null;
   return user;
+}
+
+/** Capture desk — owner, admin, or curator (curators cannot approve/publish). */
+export async function requireStaff(): Promise<PublicUser | null> {
+  const user = await getSessionUser();
+  if (!user) return null;
+  if (
+    user.role !== "owner" &&
+    user.role !== "admin" &&
+    user.role !== "curator"
+  ) {
+    return null;
+  }
+  return user;
+}
+
+export function isPublisherRole(role: string | undefined | null): boolean {
+  return role === "owner" || role === "admin";
+}
+
+export function isStaffRole(role: string | undefined | null): boolean {
+  return role === "owner" || role === "admin" || role === "curator";
 }
 
 /** Best-effort user id from cookie for analytics (API routes with Request). */

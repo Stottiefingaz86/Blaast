@@ -8,6 +8,7 @@ import {
 } from "@/lib/admin/coverage-pack";
 import { playbookById } from "@/lib/admin/playbooks";
 import { getOperator, getSession } from "@/lib/admin/store";
+import { getSessionUser, isPublisherRole } from "@/lib/platform/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ export default async function CaptureSessionPage({
   if (!session) notFound();
   const operator = await getOperator(session.operatorId);
   if (!operator) notFound();
+  const user = await getSessionUser();
+  const canPublish = isPublisherRole(user?.role);
 
   if (session.playbookId === COVERAGE_PACK_ID) {
     const coverageSteps = coverageStepsForProducts(operator.products);
@@ -30,6 +33,7 @@ export default async function CaptureSessionPage({
           initialSession={session}
           operator={operator}
           coverageSteps={coverageSteps}
+          canPublish={canPublish}
         />
       </AdminShell>
     );
@@ -44,6 +48,7 @@ export default async function CaptureSessionPage({
         initialSession={session}
         operator={operator}
         playbook={playbook}
+        canPublish={canPublish}
       />
     </AdminShell>
   );

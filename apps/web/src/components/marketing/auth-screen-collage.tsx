@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type Cover = {
@@ -19,7 +19,11 @@ const LOOP_COPIES = 2;
 /** Durations (s) — slower, staggered. */
 const COLUMN_SPEEDS = [90, 110, 98, 120, 104, 115, 108] as const;
 
-/** Mobbin-style dense diagonal wall of phone screens (unique captures). */
+/** Cap concurrent videos so the wall stays smooth. */
+let activeVideos = 0;
+const MAX_ACTIVE_VIDEOS = 10;
+
+/** Dense diagonal wall of phone screens — posters + in-view looping video. */
 export function AuthScreenCollage({
   mode = "login",
 }: {
@@ -94,10 +98,7 @@ export function AuthScreenCollage({
           return (
             <div
               key={col}
-              className={cn(
-                "flex shrink-0 flex-col",
-                columnOffset[col],
-              )}
+              className={cn("flex shrink-0 flex-col", columnOffset[col])}
             >
               <div
                 className={cn(
@@ -108,7 +109,7 @@ export function AuthScreenCollage({
               >
                 {loop.map((cover, loopIdx) => (
                   <PhoneFrame
-                    key={`${col}-${loopIdx}-${cover.label}`}
+                    key={`${col}-${loopIdx}-${cover.videoUrl ?? cover.posterUrl ?? cover.label}`}
                     cover={cover}
                   />
                 ))}
@@ -122,9 +123,76 @@ export function AuthScreenCollage({
 }
 
 function PhoneFrame({ cover }: { cover: Cover }) {
-  // Posters only — dozens of autoplaying WebMs starved localhost / login.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [inView, setInView] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [ready, setReady] = useState(false);
+  const heldSlot = useRef(false);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting && entry.intersectionRatio > 0.15),
+      { root: null, rootMargin: "40px 0px", threshold: [0, 0.15, 0.4] },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!cover.videoUrl) {
+      setPlaying(false);
+      return;
+    }
+    if (inView) {
+      if (!heldSlot.current && activeVideos < MAX_ACTIVE_VIDEOS) {
+        activeVideos += 1;
+        heldSlot.current = true;
+        setPlaying(true);
+      } else if (heldSlot.current) {
+        setPlaying(true);
+      }
+    } else {
+      setPlaying(false);
+      if (heldSlot.current) {
+        activeVideos = Math.max(0, activeVideos - 1);
+        heldSlot.current = false;
+      }
+    }
+    return () => {
+      if (heldSlot.current) {
+        activeVideos = Math.max(0, activeVideos - 1);
+        heldSlot.current = false;
+      }
+    };
+  }, [inView, cover.videoUrl]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !playing || !cover.videoUrl) {
+      setReady(false);
+      return;
+    }
+    const onPlaying = () => setReady(true);
+    const onWaiting = () => setReady(false);
+    v.addEventListener("playing", onPlaying);
+    v.addEventListener("waiting", onWaiting);
+    void v.play().catch(() => undefined);
+    return () => {
+      v.removeEventListener("playing", onPlaying);
+      v.removeEventListener("waiting", onWaiting);
+      v.pause();
+      setReady(false);
+    };
+  }, [playing, cover.videoUrl]);
+
   return (
-    <div className="relative h-[280px] w-[140px] shrink-0 overflow-hidden rounded-[22px] bg-[#2a2a2a] ring-1 ring-white/12">
+    <div
+      ref={rootRef}
+      className="relative h-[280px] w-[140px] shrink-0 overflow-hidden rounded-[22px] bg-[#2a2a2a] ring-1 ring-white/12"
+    >
       <div className="absolute top-2 left-1/2 z-10 h-3.5 w-14 -translate-x-1/2 rounded-full bg-black/70" />
       {cover.posterUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -133,11 +201,30 @@ function PhoneFrame({ cover }: { cover: Cover }) {
           alt=""
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 size-full object-cover object-top"
+          className={cn(
+            "absolute inset-0 size-full object-cover object-top transition-opacity duration-300",
+            playing && ready ? "opacity-0" : "opacity-100",
+          )}
         />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
       )}
+      {playing && cover.videoUrl ? (
+        <video
+          ref={videoRef}
+          src={cover.videoUrl}
+          muted
+          playsInline
+          autoPlay
+          loop
+          preload="metadata"
+          poster={cover.posterUrl}
+          className={cn(
+            "absolute inset-0 size-full object-cover object-top transition-opacity duration-300",
+            ready ? "opacity-100" : "opacity-0",
+          )}
+        />
+      ) : null}
     </div>
   );
 }

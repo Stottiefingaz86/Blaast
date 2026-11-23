@@ -43,11 +43,19 @@ export function AccountMenu({
   const account = useAccountOptional();
   const planLabel = (user?.plan ?? account?.plan ?? "free").toUpperCase();
   // Server session only — never trust demo localStorage for admin
-  const isAdmin = user?.role === "owner" || user?.role === "admin";
+  const isPublisher = user?.role === "owner" || user?.role === "admin";
+  const isStaff =
+    isPublisher || user?.role === "curator";
   const displayName = user?.name ?? account?.self?.name ?? "You";
   const displayEmail = user?.email ?? account?.self?.email ?? "signed out";
   const roleLabel =
-    user?.role === "owner" ? "Owner" : user?.role === "admin" ? "Admin" : null;
+    user?.role === "owner"
+      ? "Owner"
+      : user?.role === "admin"
+        ? "Admin"
+        : user?.role === "curator"
+          ? "Curator"
+          : null;
   const initialLetter = (displayName || displayEmail || "Y")
     .trim()
     .charAt(0)
@@ -141,16 +149,16 @@ export function AccountMenu({
           </Link>
         </div>
 
-        {isAdmin && (
+        {isStaff && (
           <div className="border-b border-white/[0.06] py-1.5">
             <p className="px-4 pt-1.5 pb-1 text-[10px] font-semibold tracking-wide text-[#636363] uppercase">
-              Admin access
+              {isPublisher ? "Admin access" : "Curator access"}
             </p>
             <MenuLink
               href="/admin"
               icon={<LayoutDashboard className="size-4" strokeWidth={1.75} />}
               onClick={() => setOpen(false)}
-              badge="Admin"
+              badge={isPublisher ? "Admin" : "Capture"}
             >
               Capture desk
             </MenuLink>
@@ -161,20 +169,24 @@ export function AccountMenu({
             >
               Operators & sessions
             </MenuLink>
-            <MenuLink
-              href="/admin/users"
-              icon={<Shield className="size-4" strokeWidth={1.75} />}
-              onClick={() => setOpen(false)}
-            >
-              Users & plans
-            </MenuLink>
-            <MenuLink
-              href="/admin/analytics"
-              icon={<Code2 className="size-4" strokeWidth={1.75} />}
-              onClick={() => setOpen(false)}
-            >
-              Data & analytics
-            </MenuLink>
+            {isPublisher && (
+              <>
+                <MenuLink
+                  href="/admin/users"
+                  icon={<Shield className="size-4" strokeWidth={1.75} />}
+                  onClick={() => setOpen(false)}
+                >
+                  Users & plans
+                </MenuLink>
+                <MenuLink
+                  href="/admin/analytics"
+                  icon={<Code2 className="size-4" strokeWidth={1.75} />}
+                  onClick={() => setOpen(false)}
+                >
+                  Data & analytics
+                </MenuLink>
+              </>
+            )}
           </div>
         )}
 

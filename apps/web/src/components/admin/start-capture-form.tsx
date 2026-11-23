@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { adminPrimaryBtn } from "@/components/admin/admin-shell";
+import { adminPrimaryBtn } from "@/components/admin/admin-ui";
 import { PlatformCoverageBoard } from "@/components/admin/platform-coverage-board";
 import { COVERAGE_PACK_ID } from "@/lib/admin/coverage-pack";
 import type { PlatformCoverage } from "@/lib/admin/platform-coverage";
