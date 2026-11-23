@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { MediaRegion } from "@/lib/library/catalog";
+import { MediaBusy } from "@/components/library/media-busy";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -19,8 +20,8 @@ type Props = {
 };
 
 /**
- * Trim-aware preview: still + playback always anchored to clip In/Out.
- * When `loop` is set, plays the trim window continuously.
+ * Trim-aware preview: poster by default; video only when in view + playing.
+ * Avoids mounting hundreds of videos for annotated UI tiles.
  */
 export function CaptureMedia({
   posterUrl,
@@ -33,7 +34,9 @@ export function CaptureMedia({
   hovering,
   loop,
 }: Props) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLVideoElement>(null);
+  const [inView, setInView] = useState(false);
   const [ready, setReady] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
@@ -41,17 +44,29 @@ export function CaptureMedia({
   const startMs = clipWindow?.startMs ?? atMs ?? 0;
   const endMs =
     clipWindow?.endMs ?? (atMs != null ? atMs + 3000 : undefined);
-  const hasTrim = clipWindow != null || atMs != null;
 
   const shouldPlay = Boolean(loop || (playOnHover && hovering));
-  // With a trim, always mount video so the tile shows the In frame (not a stale poster)
-  const loadVideo = Boolean(videoUrl && (shouldPlay || loop || hasTrim || !posterUrl));
+  // Only attach <video> when near viewport AND we need playback (or no poster)
+  const loadVideo = Boolean(
+    videoUrl && inView && (shouldPlay || loop || !posterUrl),
+  );
   const showPoster = Boolean(posterUrl && !posterFailed);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { root: null, rootMargin: "120px 0px", threshold: 0.01 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
     setPosterFailed(false);
     setReady(false);
-    setBuffering(Boolean(videoUrl));
+    setBuffering(false);
   }, [posterUrl, videoUrl, startMs]);
 
   useEffect(() => {
@@ -63,6 +78,7 @@ export function CaptureMedia({
     const v = ref.current;
     if (!v || !videoUrl) return;
 
+    setBuffering(true);
     const startSec = Math.max(0, startMs / 1000);
     const seek = () => {
       try {
@@ -151,12 +167,17 @@ export function CaptureMedia({
   }, [shouldPlay, loadVideo, loop, videoUrl, startMs, endMs]);
 
   return (
-    <div className={cn("relative size-full overflow-hidden bg-[#1a1a1a]", className)}>
+    <div
+      ref={rootRef}
+      className={cn("relative size-full overflow-hidden bg-[#1a1a1a]", className)}
+    >
       {showPoster && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={posterUrl}
+          src={inView ? posterUrl : undefined}
           alt=""
+          loading="lazy"
+          decoding="async"
           className={cn(
             "absolute inset-0 size-full object-cover object-top transition-opacity",
             loadVideo && ready ? "opacity-0" : "opacity-100",
@@ -178,18 +199,10 @@ export function CaptureMedia({
           )}
         />
       )}
-      {(buffering || (loadVideo && !ready)) && (
-        <div
-          className="absolute inset-0 z-10 flex items-center justify-center bg-black/25"
-          aria-busy
-          aria-label="Loading video"
-        >
-          <span className="size-8 animate-pulse rounded-full bg-white/25 ring-2 ring-white/40" />
-        </div>
-      )}
+      {(buffering || (loadVideo && shouldPlay && !ready)) && <MediaBusy />}
       {!showPoster && !loadVideo && (
         <div className="flex size-full items-center justify-center text-[12px] text-white/35">
-          No media
+          {inView ? "No media" : ""}
         </div>
       )}
       {label && (

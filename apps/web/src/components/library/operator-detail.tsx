@@ -75,13 +75,11 @@ function HoverCapture(props: {
   region?: MediaRegion;
   clipWindow?: { startMs: number; endMs: number };
   label?: string;
-  /** Force continuous loop (loaders). Trimmed clips also loop by default. */
+  /** Continuous loop only for loaders/skeletons — not every trimmed tile. */
   loopTrim?: boolean;
 }) {
   const [hover, setHover] = useState(false);
-  const hasTrim = props.clipWindow != null || props.atMs != null;
-  // Trimmed tiles always loop the In→Out window; untrimmed play on hover
-  const loop = Boolean(props.loopTrim || hasTrim);
+  const loop = Boolean(props.loopTrim);
   return (
     <div
       className="size-full"
@@ -95,7 +93,7 @@ function HoverCapture(props: {
         region={props.region}
         clipWindow={props.clipWindow}
         label={props.label}
-        playOnHover={!loop}
+        playOnHover
         hovering={loop ? true : hover}
         loop={loop}
       />

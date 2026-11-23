@@ -362,13 +362,19 @@ export function DiscoverPage() {
         <div className="relative z-0 isolate mx-auto grid max-w-[1400px] grid-cols-1 gap-x-6 gap-y-10 px-5 pt-6 pb-20 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item, i) => (
             <div
-              key={item.slug}
+              key={`${item.slug}-${filterChip ?? filters.screens[0] ?? filters.uiElements[0] ?? "all"}`}
               className="animate-fade-up"
-              style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}
+              style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
             >
               <PreviewCard
                 operator={item}
-                focusChip={filterChip ?? filters.screens[0] ?? null}
+                focusChip={
+                  filterChip ??
+                  filters.screens[0] ??
+                  filters.uiElements[0] ??
+                  filters.flows[0] ??
+                  null
+                }
               />
             </div>
           ))}
@@ -381,7 +387,9 @@ export function DiscoverPage() {
         value={filters}
         onApply={(next) => {
           setFilters(next);
-          if (next.screens[0]) setFilterChip(next.screens[0]);
+          const primary =
+            next.screens[0] ?? next.uiElements[0] ?? next.flows[0] ?? null;
+          if (primary) setFilterChip(primary);
         }}
         resultCount={items.length}
       />

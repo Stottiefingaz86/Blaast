@@ -5,21 +5,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pause } from "lucide-react";
 import type { CatalogOperator } from "@/lib/library/catalog";
 import { resolveFocusHero } from "@/lib/library/focus-media";
+import { MediaBusy } from "@/components/library/media-busy";
 import { cn } from "@/lib/utils";
 
-/** Poster by default; video only on hover (keeps library snappy). */
+/** Poster by default; video only on hover when in view (keeps library snappy). */
 export function PreviewCard({
   operator,
   focusChip,
 }: {
   operator: CatalogOperator;
-  /** Library filter (Home, Onboarding, …) — drives cover media */
+  /** Library filter (Home, Betslip, Header, …) — drives cover media */
   focusChip?: string | null;
 }) {
   const isMobile = operator.platform === "mobile";
+  const rootRef = useRef<HTMLAnchorElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [inView, setInView] = useState(false);
   const [hover, setHover] = useState(false);
   const [ready, setReady] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const hero = useMemo(
     () => resolveFocusHero(operator, focusChip),
     [operator, focusChip],
@@ -29,7 +32,18 @@ export function PreviewCard({
     hero.clipWindow?.endMs != null
       ? hero.clipWindow.endMs / 1000
       : startSec + 4;
-  const playing = hover && Boolean(hero.videoUrl);
+  const playing = hover && inView && Boolean(hero.videoUrl);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { root: null, rootMargin: "180px 0px", threshold: 0.01 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!playing) {
@@ -49,9 +63,13 @@ export function PreviewCard({
       seek();
     };
     const onSeeked = () => setReady(true);
+    const onWaiting = () => setReady(false);
+    const onPlaying = () => setReady(true);
     if (v.readyState >= 1) onMeta();
     else v.addEventListener("loadedmetadata", onMeta, { once: true });
     v.addEventListener("seeked", onSeeked);
+    v.addEventListener("waiting", onWaiting);
+    v.addEventListener("playing", onPlaying);
     void v.play().catch(() => undefined);
     const onTime = () => {
       if (v.currentTime >= endSec) {
@@ -66,6 +84,8 @@ export function PreviewCard({
     v.addEventListener("timeupdate", onTime);
     return () => {
       v.removeEventListener("seeked", onSeeked);
+      v.removeEventListener("waiting", onWaiting);
+      v.removeEventListener("playing", onPlaying);
       v.removeEventListener("timeupdate", onTime);
       v.pause();
     };
@@ -73,6 +93,7 @@ export function PreviewCard({
 
   return (
     <Link
+      ref={rootRef}
       href={`/operators/${operator.slug}`}
       className="group flex flex-col gap-3 outline-none"
       onMouseEnter={() => setHover(true)}
@@ -94,7 +115,7 @@ export function PreviewCard({
             {hero.label}
           </span>
         )}
-        {playing && (
+        {playing && ready && (
           <span className="absolute top-4 right-4 z-10 flex size-7 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm">
             <Pause className="size-3.5" fill="currentColor" strokeWidth={0} />
           </span>
@@ -105,32 +126,36 @@ export function PreviewCard({
             isMobile
               ? "aspect-[9/19] w-full max-w-[210px] rounded-[26px] shadow-[0_16px_48px_-20px_rgba(0,0,0,0.55)]"
               : "aspect-[16/10] w-full rounded-[18px] shadow-[0_16px_48px_-24px_rgba(0,0,0,0.5)]",
-            playing && "scale-[1.015]",
+            playing && ready && "scale-[1.015]",
           )}
         >
           {hero.posterUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={hero.posterUrl}
+              src={inView ? hero.posterUrl : undefined}
               alt=""
+              loading="lazy"
+              decoding="async"
               className={cn(
                 "absolute inset-0 size-full object-cover object-top",
                 playing && ready && "opacity-0",
               )}
             />
-          ) : operator.logoUrl ? (
+          ) : operator.logoUrl && inView ? (
             <div className="flex size-full items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={operator.logoUrl}
                 alt=""
+                loading="lazy"
+                decoding="async"
                 className="size-16 rounded-2xl object-contain"
               />
             </div>
           ) : null}
           {playing && hero.videoUrl && (
             <video
-              key={hero.videoUrl}
+              key={`${hero.videoUrl}-${hero.clipWindow?.startMs ?? 0}-${hero.label ?? ""}`}
               ref={videoRef}
               src={hero.videoUrl}
               muted
@@ -143,15 +168,7 @@ export function PreviewCard({
               )}
             />
           )}
-          {playing && hero.videoUrl && !ready && (
-            <div
-              className="absolute inset-0 z-10 flex items-center justify-center bg-black/30"
-              aria-busy
-              aria-label="Loading video"
-            >
-              <span className="size-8 animate-pulse rounded-full bg-white/25 ring-2 ring-white/40" />
-            </div>
-          )}
+          {playing && hero.videoUrl && !ready && <MediaBusy />}
         </div>
       </div>
       <div className="flex items-start gap-2.5 px-1">
@@ -160,6 +177,8 @@ export function PreviewCard({
           <img
             src={operator.logoUrl}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="mt-0.5 size-7 shrink-0 rounded-full bg-white object-contain p-0.5"
           />
         ) : (

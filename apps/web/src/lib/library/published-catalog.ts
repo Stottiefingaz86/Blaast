@@ -478,15 +478,12 @@ export async function catalogFromPublished(
       const slot = CORE_LIBRARY_STEPS[i.coverageStepId ?? ""]?.slot;
       return slot !== "ui";
     }));
-    // Prefer a trimmed screen beat for the catalogue hero (not a black t=0 frame)
+    // Prefer a trimmed screen beat for the catalogue hero (not a black t=0 frame).
+    // Prefer betslip over full event view so filtered covers stay element-true.
     const hero =
-      use.find(
-        (i) =>
-          i.hasVideo &&
-          (i.coverageStepId === "flow-bet-event" ||
-            i.coverageStepId === "flow-bet-add" ||
-            i.coverageStepId === "scr-betslip"),
-      ) ??
+      use.find((i) => i.hasVideo && i.coverageStepId === "scr-betslip") ??
+      use.find((i) => i.hasVideo && i.coverageStepId === "flow-bet-add") ??
+      use.find((i) => i.hasVideo && i.coverageStepId === "flow-bet-event") ??
       use.find((i) => i.hasVideo) ??
       use.find((i) => i.posterUrl) ??
       first;
