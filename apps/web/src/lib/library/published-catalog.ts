@@ -161,19 +161,22 @@ function mediaUrls(rec: PublishedClipRecord, origin: string) {
     rec.clipWindow?.startMs != null
       ? `&t=${Math.round(rec.clipWindow.startMs)}`
       : "";
-  const hasVideo = Boolean(rec.videoPath || rec.videoUrl);
-  const hasPoster = Boolean(rec.posterPath || rec.posterUrl);
+  // Prefer cloud Storage URLs — Vercel has no local .data captures for the proxy path
+  const cloudPoster = rec.posterUrl?.startsWith("http")
+    ? rec.posterUrl
+    : undefined;
+  const cloudVideo = rec.videoUrl?.startsWith("http")
+    ? rec.videoUrl
+    : undefined;
   return {
-    posterUrl: rec.posterUrl?.startsWith("http")
-      ? rec.posterUrl
-      : hasPoster || hasVideo
+    posterUrl:
+      cloudPoster ??
+      (rec.posterPath || cloudVideo || rec.videoPath
         ? `${base}?file=poster${bust}`
-        : undefined,
-    videoUrl: rec.videoUrl?.startsWith("http")
-      ? rec.videoUrl
-      : hasVideo
-        ? `${base}?file=video`
-        : undefined,
+        : undefined),
+    videoUrl:
+      cloudVideo ??
+      (rec.videoPath ? `${base}?file=video` : undefined),
   };
 }
 
@@ -214,7 +217,7 @@ export async function listLibraryMedia(
       kind,
       taxonomy: rec.taxonomy,
       tags: rec.tags,
-      hasVideo: Boolean(rec.videoPath || rec.videoUrl),
+      hasVideo: Boolean(media.videoUrl),
       ...media,
       clipWindow: rec.clipWindow,
       durationMs: rec.durationMs,
@@ -274,9 +277,9 @@ export async function listLibraryMedia(
         kind: kindFromCategory(category),
         taxonomy: "ui_element",
         tags: annTags,
-        hasVideo: Boolean(rec.videoPath || rec.videoUrl),
-        posterUrl: annPoster,
-        videoUrl: media.videoUrl,
+      hasVideo: Boolean(media.videoUrl),
+      posterUrl: annPoster,
+      videoUrl: media.videoUrl,
         elementLabel: title,
         atMs: ann.atMs,
         region: ann.region,

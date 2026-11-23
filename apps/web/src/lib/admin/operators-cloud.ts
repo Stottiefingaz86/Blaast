@@ -17,6 +17,9 @@ type CloudRow = {
   updated_at: string;
 };
 
+const BUCKET = "blaast-captures";
+const INDEX_PATH = "operators-index.json";
+
 function rowToOperator(row: CloudRow): Operator {
   return {
     id: row.id,
@@ -35,7 +38,7 @@ function rowToOperator(row: CloudRow): Operator {
   };
 }
 
-function operatorToRow(op: Operator): Record<string, unknown> {
+function operatorToRow(op: Operator): CloudRow {
   return {
     id: op.id,
     name: op.name,
@@ -53,51 +56,64 @@ function operatorToRow(op: Operator): Record<string, unknown> {
   };
 }
 
-/** Persist operator so Vercel serverless can read it after create. */
-export async function upsertOperatorCloud(op: Operator): Promise<void> {
-  const { url, key } = scuupConfig();
-  if (!url || !key) return;
+function mergeOperators(...lists: Operator[][]): Operator[] {
+  const byId = new Map<string, Operator>();
+  for (const list of lists) {
+    for (const op of list) {
+      if (!op?.id) continue;
+      const prev = byId.get(op.id);
+      if (!prev || (op.updatedAt || "") >= (prev.updatedAt || "")) {
+        byId.set(op.id, op);
+      }
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
 
-  const res = await fetch(`${url}/rest/v1/blaast_operators`, {
-    method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates,return=minimal",
-    },
-    body: JSON.stringify(operatorToRow(op)),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("[blaast_operators upsert]", res.status, text);
+async function fetchOperatorsIndex(): Promise<Operator[]> {
+  const { url, key } = scuupConfig();
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(
+      `${url}/storage/v1/object/public/${BUCKET}/${INDEX_PATH}?t=${Date.now()}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    const rows = (await res.json()) as CloudRow[];
+    if (!Array.isArray(rows)) return [];
+    return rows.map(rowToOperator);
+  } catch {
+    return [];
   }
 }
 
-export async function getOperatorCloud(id: string): Promise<Operator | null> {
+async function uploadOperatorsIndex(ops: Operator[]): Promise<void> {
   const { url, key } = scuupConfig();
-  if (!url || !key) return null;
-
+  if (!url || !key) return;
+  const body = JSON.stringify(ops.map(operatorToRow));
   const res = await fetch(
-    `${url}/rest/v1/blaast_operators?id=eq.${encodeURIComponent(id)}&select=*`,
+    `${url}/storage/v1/object/${BUCKET}/${INDEX_PATH}`,
     {
+      method: "POST",
       headers: {
         apikey: key,
         Authorization: `Bearer ${key}`,
-        Accept: "application/json",
+        "Content-Type": "application/json",
+        "x-upsert": "true",
       },
-      cache: "no-store",
+      body,
     },
   );
   if (!res.ok) {
-    console.error("[blaast_operators get]", res.status, await res.text());
-    return null;
+    console.error(
+      "[operators-index upload]",
+      res.status,
+      (await res.text()).slice(0, 200),
+    );
   }
-  const rows = (await res.json()) as CloudRow[];
-  return rows[0] ? rowToOperator(rows[0]) : null;
 }
 
-export async function listOperatorsCloud(): Promise<Operator[]> {
+async function listOperatorsTable(): Promise<Operator[]> {
   const { url, key } = scuupConfig();
   if (!url || !key) return [];
 
@@ -113,9 +129,68 @@ export async function listOperatorsCloud(): Promise<Operator[]> {
     },
   );
   if (!res.ok) {
-    console.error("[blaast_operators list]", res.status, await res.text());
+    // Table may not exist yet on Scuup — Storage index is the durable path
+    if (res.status !== 404) {
+      console.error("[blaast_operators list]", res.status, await res.text());
+    }
     return [];
   }
   const rows = (await res.json()) as CloudRow[];
   return rows.map(rowToOperator);
+}
+
+async function upsertOperatorTable(op: Operator): Promise<void> {
+  const { url, key } = scuupConfig();
+  if (!url || !key) return;
+
+  const res = await fetch(`${url}/rest/v1/blaast_operators`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify(operatorToRow(op)),
+  });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text();
+    console.error("[blaast_operators upsert]", res.status, text);
+  }
+}
+
+/** Persist operator so Vercel serverless can read it after create. */
+export async function upsertOperatorCloud(op: Operator): Promise<void> {
+  const existing = await listOperatorsCloud();
+  const next = mergeOperators(existing, [op]);
+  await uploadOperatorsIndex(next);
+  await upsertOperatorTable(op);
+}
+
+export async function getOperatorCloud(id: string): Promise<Operator | null> {
+  const all = await listOperatorsCloud();
+  return all.find((o) => o.id === id) ?? null;
+}
+
+/**
+ * Durable Sites list: Storage operators-index.json (+ Postgres when migrated).
+ * Vercel /tmp local JSON is empty — cloud is the source of truth in prod.
+ */
+export async function listOperatorsCloud(): Promise<Operator[]> {
+  const [table, index] = await Promise.all([
+    listOperatorsTable(),
+    fetchOperatorsIndex(),
+  ]);
+  return mergeOperators(table, index);
+}
+
+/** Seed / replace cloud index from a known operator list (local sync). */
+export async function syncOperatorsCloud(ops: Operator[]): Promise<number> {
+  const existing = await listOperatorsCloud();
+  const next = mergeOperators(existing, ops);
+  await uploadOperatorsIndex(next);
+  for (const op of ops) {
+    await upsertOperatorTable(op);
+  }
+  return next.length;
 }
