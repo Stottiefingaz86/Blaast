@@ -15,7 +15,7 @@ export default async function OperatorsPage() {
           <h2 className="text-[15px] font-semibold">Add site</h2>
           <p className="mt-1 mb-5 text-[13px] text-neutral-500">
             Short wizard — then run the same guided coverage pack on every brand
-            (Place a bet, Casino lobby, Deposit, …).
+            (Home → Sign up → Deposit, then Place a bet / Casino …).
           </p>
           <AddOperatorForm />
         </section>

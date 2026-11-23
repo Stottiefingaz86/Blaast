@@ -80,7 +80,7 @@ const SCREEN_GROUPS: { label: string; items: string[] }[] = [
 const FLOW_GROUPS: { label: string; items: string[] }[] = [
   {
     label: "Core journeys",
-    items: ["Place a bet", "First deposit", "Onboarding"],
+    items: ["Sign up", "First deposit", "Place a bet", "Onboarding"],
   },
   {
     label: "Money movement",

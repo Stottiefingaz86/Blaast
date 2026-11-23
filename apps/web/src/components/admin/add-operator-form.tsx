@@ -314,7 +314,7 @@ export function AddOperatorForm() {
             </div>
             <p className="text-[12px] text-neutral-400">
               Every brand runs the same guided queue for the products you enable
-              (Place a bet, Casino lobby, Deposit, …).
+              (Home → Sign up → Deposit, then Place a bet / Casino …).
             </p>
           </div>
           <div className="flex flex-col gap-2">

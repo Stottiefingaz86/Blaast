@@ -30,8 +30,9 @@ export const MEGA = {
     "Skeleton",
   ],
   flows: [
-    "Place a bet",
+    "Sign up",
     "First deposit",
+    "Place a bet",
     "Onboarding",
     "Withdrawal",
     "Bonus claim",

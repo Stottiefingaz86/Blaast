@@ -40,9 +40,9 @@ export function brandCoveragePlaybook(
   const steps = coverageStepsForProducts(products);
   return {
     id: COVERAGE_PACK_ID,
-    title: "Brand E2E journeys",
+    title: "Brand E2E journeys (Home → Sign up → Deposit + product)",
     description:
-      "Required end-to-end journeys for this brand (home → bet → casino → cashier → account). UI close-ups are optional tags inside each journey.",
+      "Core first: Home → Sign up → Deposit. Then Place a bet, Casino, Promotions, VIP. UI close-ups are optional tags inside each journey.",
     products: products.length ? products : ["cross_product"],
     platforms: ["mobile_web", "desktop_web"],
     items: steps.map(coverageToPlaybookItem),

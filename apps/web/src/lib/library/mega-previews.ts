@@ -79,6 +79,7 @@ export const MEGA_PREVIEWS: Record<string, MegaPreview[]> = {
   Loader: [...casino, ...sportsbook].slice(0, 4),
   Skeleton: [...casino, ...sportsbook].slice(0, 4),
 
+  "Sign up": account,
   "Place a bet": sportsbook,
   "First deposit": cashier,
   Onboarding: account,

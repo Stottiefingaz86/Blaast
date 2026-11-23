@@ -141,7 +141,7 @@ export function uiElementsForContext(primary: string | null): string[] {
         "Loader",
       ];
     }
-    if (label === "Onboarding") {
+    if (label === "Sign up" || label === "Onboarding") {
       return [
         "Welcome",
         "Registration form",
@@ -194,6 +194,7 @@ export function categoriesForContext(primary: string | null): string[] {
         return ["Cashier", "Sportsbook", "Casino"];
       case "Bonus claim":
         return ["Promotions", "Rewards & VIP", "Casino", "Sportsbook"];
+      case "Sign up":
       case "Onboarding":
         return [...VERTICALS];
       default:

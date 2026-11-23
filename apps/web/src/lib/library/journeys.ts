@@ -59,13 +59,16 @@ export const JOURNEY_CATEGORY: Record<JourneyId, LibraryCategory> = {
 /** Blaast coverage `flowId` → Scuup journey */
 export const COVERAGE_FLOW_TO_JOURNEY: Record<string, JourneyId> = {
   home_tour: "landing",
+  sign_up: "signup",
+  first_deposit: "deposit",
   place_a_bet: "sports_betslip",
   cash_out: "sports_betslip",
   casino_browse: "casino",
   promotions: "loyalty_rewards",
   vip_rewards: "loyalty_rewards",
-  first_deposit: "deposit",
   withdrawal: "withdraw",
+  account: "signup",
+  /** Legacy brand-coverage id */
   onboarding: "signup",
 };
 
@@ -78,6 +81,16 @@ export const STEP_TO_JOURNEY: Record<string, JourneyId> = {
   "ui-loader": "cross",
   "ui-skeleton": "cross",
   "ui-activity-feed": "landing",
+  "flow-signup-open": "signup",
+  "scr-register": "signup",
+  "flow-signup-steps": "signup",
+  "flow-signup-complete": "signup",
+  "scr-login": "signup",
+  "scr-my-account": "signup",
+  "scr-deposit": "deposit",
+  "ui-method-row": "deposit",
+  "flow-deposit-amount": "deposit",
+  "flow-withdraw": "withdraw",
   "flow-bet-event": "sports_betslip",
   "flow-bet-add": "sports_betslip",
   "flow-bet-place": "sports_betslip",

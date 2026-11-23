@@ -34,7 +34,7 @@ export default async function AdminHomePage() {
         <h2 className="text-[15px] font-semibold">Guided brand coverage</h2>
         <p className="mt-1 text-[13px] text-neutral-500">
           Same taxonomy for every brand: instruction → 3-2-1 → short video →
-          next. Place a bet, Casino lobby, Deposit, Login — comparable results.
+          next. Home → Sign up → Deposit first, then Place a bet / Casino — comparable results.
         </p>
         <ol className="mt-3 flex flex-col gap-2 text-[13px] text-neutral-600">
           <li>1. Sites → Add site (products unlock packs).</li>

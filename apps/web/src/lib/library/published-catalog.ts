@@ -30,10 +30,19 @@ export const CORE_LIBRARY_STEPS: Record<
   string,
   { title: string; slot: "screen" | "ui" | "flow"; order: number }
 > = {
-  "flow-bet-event": { title: "Event view", slot: "screen", order: 1 },
-  "flow-bet-add": { title: "Add to betslip", slot: "screen", order: 2 },
-  "scr-betslip": { title: "Betslip", slot: "screen", order: 3 },
-  "scr-home": { title: "Home", slot: "screen", order: 4 },
+  // Core acquisition: Home → Sign up → Deposit
+  "scr-home": { title: "Home", slot: "screen", order: 1 },
+  "flow-signup-open": { title: "Open sign up", slot: "flow", order: 2 },
+  "scr-register": { title: "Sign up", slot: "screen", order: 3 },
+  "flow-signup-steps": { title: "Sign-up steps", slot: "flow", order: 4 },
+  "flow-signup-complete": { title: "After sign up", slot: "flow", order: 5 },
+  "scr-deposit": { title: "Deposit", slot: "screen", order: 6 },
+  "flow-deposit-amount": { title: "Deposit amount", slot: "flow", order: 7 },
+  "scr-login": { title: "Login", slot: "screen", order: 8 },
+  "scr-my-account": { title: "My account", slot: "screen", order: 9 },
+  "flow-bet-event": { title: "Event view", slot: "screen", order: 10 },
+  "flow-bet-add": { title: "Add to betslip", slot: "screen", order: 11 },
+  "scr-betslip": { title: "Betslip", slot: "screen", order: 12 },
   "scr-casino-lobby": { title: "Casino lobby", slot: "screen", order: 20 },
   // Casino browse & launch (casino-core playbook + brand-coverage)
   // Lobby is a full screen AND step 1 of the flow
@@ -53,6 +62,7 @@ export const CORE_LIBRARY_STEPS: Record<
   "ui-loader": { title: "Loader", slot: "ui", order: 5 },
   "ui-skeleton": { title: "Skeleton", slot: "ui", order: 6 },
   "ui-activity-feed": { title: "Activity feed", slot: "ui", order: 7 },
+  "ui-method-row": { title: "Payment methods", slot: "ui", order: 8 },
 };
 
 /** Playbook / coverage ids that belong on UI Elements as well as a flow. */

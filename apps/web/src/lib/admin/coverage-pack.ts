@@ -48,19 +48,19 @@ function beat(
 
 /**
  * Canonical brand coverage — full E2E journeys every operator (filtered by products).
- * Brand sessions must complete journeys (`flowId` groups). Partial playbooks /
- * VIP extras are add-ons after brand E2E. UI element beats are optional tags
- * inside a journey, not standalone captures.
+ * Core acquisition first: Home → Sign up → Deposit. Then sports / casino / rewards.
+ * UI element beats are optional tags inside a journey, not standalone captures.
  * Stop yourself when done — maxClipSec is a ceiling, not a target.
+ * Never type passwords, PII, or payment credentials.
  */
 export const COVERAGE_STEPS: CoverageStep[] = [
-  // —— Global chrome ——
+  // —— Core journey 1: Land on home ——
   beat(
     "scr-home",
-    "Show the Home page (incl. loader)",
-    "Record home: Reload while REC to catch loader/skeleton, then settle. Tag side nav, hero, VIP, feeds as you go.",
+    "Land on the Home page",
+    "Open the site logged out if you can. Capture first paint / loader then settled home. Tag hero, nav, Sign up / Login / Deposit CTAs.",
     "screen",
-    ["home", "loader", "skeleton"],
+    ["home", "landing", "loader"],
     "cross_product",
     { recordMode: "clip", maxClipSec: 300, flowId: "home_tour" },
   ),
@@ -76,7 +76,7 @@ export const COVERAGE_STEPS: CoverageStep[] = [
   beat(
     "ui-header",
     "Show the Header",
-    "Wallet, deposit CTA, inbox, profile entry visible. Tag each CTA.",
+    "Wallet, deposit CTA, Sign up / Login, inbox, profile entry. Tag each CTA.",
     "ui_element",
     ["header", "cta"],
     "cross_product",
@@ -108,6 +108,73 @@ export const COVERAGE_STEPS: CoverageStep[] = [
     ["skeleton", "loader"],
     "cross_product",
     { maxClipSec: 30 },
+  ),
+
+  // —— Core journey 2: Sign up ——
+  beat(
+    "flow-signup-open",
+    "Open Sign up / Register from home",
+    "From logged-out home or header, open Sign up / Register / Join. Capture the CTA → form transition.",
+    "flow_beat",
+    ["signup", "register", "onboarding", "cta"],
+    "account",
+    { flowId: "sign_up", maxClipSec: 60 },
+  ),
+  beat(
+    "scr-register",
+    "Show the registration / sign-up form",
+    "Empty registration form only — no PII typed. Tag field groups, social auth, Continue / Create account CTA.",
+    "screen",
+    ["register", "signup", "onboarding"],
+    "account",
+    { flowId: "sign_up", maxClipSec: 90 },
+  ),
+  beat(
+    "flow-signup-steps",
+    "Walk the sign-up steps / gates",
+    "Step through registration screens (details, preferences, KYC gate, success). Leave fields empty or use research placeholders — never real passwords or documents.",
+    "flow_beat",
+    ["signup", "onboarding", "kyc"],
+    "account",
+    { flowId: "sign_up", maxClipSec: 180 },
+  ),
+  beat(
+    "flow-signup-complete",
+    "Land after sign-up (logged-in home)",
+    "After register (or with a research account already signed in), show the post-signup home / welcome. Tag wallet empty state and Deposit CTA.",
+    "flow_beat",
+    ["signup", "home", "welcome"],
+    "account",
+    { flowId: "sign_up", maxClipSec: 90 },
+  ),
+
+  // —— Core journey 3: First deposit ——
+  beat(
+    "scr-deposit",
+    "Open Deposit / cashier entry",
+    "From home or header, open Deposit. Hub before payment details — no card digits, no filled wallets.",
+    "screen",
+    ["deposit", "cashier", "first_deposit"],
+    "cashier",
+    { flowId: "first_deposit", maxClipSec: 90 },
+  ),
+  beat(
+    "ui-method-row",
+    "Show payment method rows",
+    "Method picker only. Never capture filled card/OTP fields.",
+    "ui_element",
+    ["payment_methods", "method_row"],
+    "cashier",
+    { flowId: "first_deposit", maxClipSec: 45 },
+  ),
+  beat(
+    "flow-deposit-amount",
+    "Show amount / confirm step (safe)",
+    "Amount picker or confirm step with methods visible. Stop before entering real payment credentials.",
+    "flow_beat",
+    ["deposit", "cashier", "first_deposit"],
+    "cashier",
+    { flowId: "first_deposit", maxClipSec: 60 },
   ),
 
   // —— Flow: Place a bet (sportsbook) ——
@@ -242,25 +309,7 @@ export const COVERAGE_STEPS: CoverageStep[] = [
     { flowId: "vip_rewards", required: false, maxClipSec: 60 },
   ),
 
-  // —— Cashier (safe) ——
-  beat(
-    "scr-deposit",
-    "Open Deposit / cashier entry",
-    "Deposit hub before payment details — no card digits.",
-    "screen",
-    ["deposit", "cashier"],
-    "cashier",
-    { flowId: "first_deposit", maxClipSec: 60 },
-  ),
-  beat(
-    "ui-method-row",
-    "Show payment method rows",
-    "Method picker only. Never capture filled card/OTP fields.",
-    "ui_element",
-    ["payment_methods", "method_row"],
-    "cashier",
-    { flowId: "first_deposit", maxClipSec: 45 },
-  ),
+  // —— Withdrawal (safe) ——
   beat(
     "flow-withdraw",
     "Open Withdrawal hub",
@@ -271,7 +320,7 @@ export const COVERAGE_STEPS: CoverageStep[] = [
     { flowId: "withdrawal", required: false, maxClipSec: 60 },
   ),
 
-  // —— Onboarding / account ——
+  // —— Account (after core acquisition) ——
   beat(
     "scr-login",
     "Show the Login screen",
@@ -279,16 +328,7 @@ export const COVERAGE_STEPS: CoverageStep[] = [
     "screen",
     ["login", "onboarding"],
     "account",
-    { flowId: "onboarding", maxClipSec: 45 },
-  ),
-  beat(
-    "scr-register",
-    "Show Registration / sign-up",
-    "Empty registration form — no PII typed. Tag field groups + Continue CTA.",
-    "screen",
-    ["register", "onboarding"],
-    "account",
-    { flowId: "onboarding", maxClipSec: 60 },
+    { flowId: "account", maxClipSec: 45 },
   ),
   beat(
     "scr-my-account",
@@ -297,7 +337,7 @@ export const COVERAGE_STEPS: CoverageStep[] = [
     "screen",
     ["my_account"],
     "account",
-    { flowId: "onboarding", maxClipSec: 60 },
+    { flowId: "account", maxClipSec: 60 },
   ),
 ];
 
@@ -306,9 +346,19 @@ export const COVERAGE_PACK_ID = "brand-coverage";
 /** Flow groups match Scuup product categories (Sports / Casino / …). */
 export const FLOW_LABELS: Record<string, { name: string; group: string; actions: string[] }> = {
   home_tour: {
-    name: "Home tour",
-    group: "Home",
-    actions: ["Browse", "Nav", "Tag chrome"],
+    name: "Land on home",
+    group: "Core",
+    actions: ["Land", "Nav", "CTAs"],
+  },
+  sign_up: {
+    name: "Sign up",
+    group: "Core",
+    actions: ["Open", "Form", "Steps", "Complete"],
+  },
+  first_deposit: {
+    name: "First deposit",
+    group: "Core",
+    actions: ["Deposit", "Methods", "Amount"],
   },
   place_a_bet: {
     name: "Place a bet",
@@ -335,19 +385,20 @@ export const FLOW_LABELS: Record<string, { name: string; group: string; actions:
     group: "Rewards",
     actions: ["VIP", "Feed", "Claim"],
   },
-  first_deposit: {
-    name: "First deposit",
-    group: "Cashier",
-    actions: ["Deposit", "Methods"],
-  },
   withdrawal: {
     name: "Withdrawal",
     group: "Cashier",
     actions: ["Withdraw"],
   },
-  onboarding: {
-    name: "Onboarding & account",
+  account: {
+    name: "Login & account",
     group: "Account",
+    actions: ["Login", "Account"],
+  },
+  /** Legacy id — keep for older sessions still mid-flight */
+  onboarding: {
+    name: "Sign up",
+    group: "Core",
     actions: ["Login", "Register", "Account"],
   },
 };
@@ -359,6 +410,9 @@ export function coverageStepsForProducts(
   // Always include engagement surfaces when doing full brand coverage
   set.add("rewards");
   set.add("promotions");
+  // Core acquisition needs account + cashier even if operator list omitted them
+  set.add("account");
+  set.add("cashier");
   return COVERAGE_STEPS.filter(
     (s) =>
       s.productGate === "cross_product" || set.has(s.productGate as ProductSurface),
@@ -402,7 +456,27 @@ export function coverageJourneyProgress(
     list.push(s);
     byFlow.set(fid, list);
   }
-  return [...byFlow.entries()].map(([flowId, flowSteps]) => {
+  // Core acquisition first in the scoreboard
+  const order = [
+    "home_tour",
+    "sign_up",
+    "first_deposit",
+    "place_a_bet",
+    "cash_out",
+    "casino_browse",
+    "promotions",
+    "vip_rewards",
+    "withdrawal",
+    "account",
+    "onboarding",
+    "_ungrouped",
+  ];
+  const entries = [...byFlow.entries()].sort((a, b) => {
+    const ia = order.indexOf(a[0]);
+    const ib = order.indexOf(b[0]);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  return entries.map(([flowId, flowSteps]) => {
     const required = flowSteps.filter((s) => s.required);
     const done = required.filter((s) => stepDone(statuses, s.id)).length;
     const meta = FLOW_LABELS[flowId];
