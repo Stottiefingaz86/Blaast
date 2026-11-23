@@ -43,9 +43,10 @@ export const CORE_LIBRARY_STEPS: Record<
   "flow-bet-event": { title: "Event view", slot: "screen", order: 10 },
   "flow-bet-add": { title: "Add to betslip", slot: "screen", order: 11 },
   "scr-betslip": { title: "Betslip", slot: "screen", order: 12 },
+  "flow-bet-place": { title: "Place bet", slot: "flow", order: 13 },
+  "flow-cashout": { title: "Cash out", slot: "flow", order: 14 },
   "scr-casino-lobby": { title: "Casino lobby", slot: "screen", order: 20 },
   // Casino browse & launch (casino-core playbook + brand-coverage)
-  // Lobby is a full screen AND step 1 of the flow
   "ca-lobby": { title: "Casino lobby", slot: "screen", order: 20 },
   "ca-nav": { title: "Browse categories", slot: "flow", order: 21 },
   "ca-game-card": { title: "Pick a game", slot: "flow", order: 22 },
@@ -55,6 +56,11 @@ export const CORE_LIBRARY_STEPS: Record<
   "flow-game-launch": { title: "Launch game", slot: "flow", order: 25 },
   "ca-recents": { title: "Recents", slot: "flow", order: 26 },
   "ca-jackpots": { title: "Jackpots", slot: "flow", order: 27 },
+  "scr-promotions": { title: "Promotions", slot: "screen", order: 30 },
+  "ui-promo-card": { title: "Promo card", slot: "ui", order: 31 },
+  "scr-vip": { title: "VIP", slot: "screen", order: 32 },
+  "flow-bonus-claim": { title: "Claim bonus", slot: "flow", order: 33 },
+  "flow-withdraw": { title: "Withdrawal", slot: "flow", order: 34 },
   "ui-side-nav": { title: "Side nav", slot: "ui", order: 1 },
   "ui-header": { title: "Header", slot: "ui", order: 2 },
   "ui-tab-bar": { title: "Tab bar", slot: "ui", order: 3 },
@@ -375,22 +381,24 @@ export async function catalogFromPublished(
     const beats = all.filter((i) => !i.annotationId);
     const anns = all.filter((i) => i.annotationId);
 
-    const core = beats
-      .filter((i) => i.coverageStepId && CORE_LIBRARY_STEPS[i.coverageStepId])
+    // Show every published beat with media — CORE_LIBRARY_STEPS orders/titles only.
+    const use = [...beats]
+      .filter((i) => i.posterUrl || i.hasVideo)
       .sort((a, b) => {
-        const oa = CORE_LIBRARY_STEPS[a.coverageStepId!]!.order;
-        const ob = CORE_LIBRARY_STEPS[b.coverageStepId!]!.order;
+        const oa = CORE_LIBRARY_STEPS[a.coverageStepId ?? ""]?.order ?? 80;
+        const ob = CORE_LIBRARY_STEPS[b.coverageStepId ?? ""]?.order ?? 80;
         return oa - ob;
       });
-
-    const use = core.length ? core : beats.slice(0, 1);
     if (!use.length) continue;
     const first = use[0]!;
 
     const screens: CatalogScreen[] = use
       .filter((i) => {
         const slot = CORE_LIBRARY_STEPS[i.coverageStepId ?? ""]?.slot;
-        return slot === "screen" || (!core.length && i.taxonomy !== "ui_element");
+        if (slot === "ui") return false;
+        if (slot === "screen" || slot === "flow") return true;
+        // Unknown step ids still surface as screens when they have media
+        return i.taxonomy !== "ui_element";
       })
       .map((i) => ({
         id: i.id,

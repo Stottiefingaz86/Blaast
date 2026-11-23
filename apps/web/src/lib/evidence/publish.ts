@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { coverageStepById } from "@/lib/admin/coverage-pack";
-import { getOperator } from "@/lib/admin/store";
+import { getOperator, listSessions } from "@/lib/admin/store";
 import type { CaptureSession, RecordingArtifact } from "@/lib/admin/types";
 import { dataDir } from "@/lib/platform/data-dir";
 
@@ -46,10 +46,126 @@ async function readPublished(): Promise<PublishedClipRecord[]> {
   }
 }
 
+function mergeByArtifactId(
+  ...lists: PublishedClipRecord[][]
+): PublishedClipRecord[] {
+  const byId = new Map<string, PublishedClipRecord>();
+  for (const list of lists) {
+    for (const row of list) {
+      if (!row?.artifactId) continue;
+      const prev = byId.get(row.artifactId);
+      if (!prev) {
+        byId.set(row.artifactId, row);
+        continue;
+      }
+      // Prefer the newer publish; keep cloud URLs if the newer row lacks them
+      const newer =
+        (row.publishedAt || "") >= (prev.publishedAt || "") ? row : prev;
+      const older = newer === row ? prev : row;
+      byId.set(row.artifactId, {
+        ...older,
+        ...newer,
+        videoUrl: newer.videoUrl || older.videoUrl,
+        posterUrl: newer.posterUrl || older.posterUrl,
+        videoPath: newer.videoPath || older.videoPath,
+        posterPath: newer.posterPath || older.posterPath,
+      });
+    }
+  }
+  return [...byId.values()].sort((a, b) =>
+    (b.publishedAt || "").localeCompare(a.publishedAt || ""),
+  );
+}
+
+async function fetchCloudIndex(): Promise<PublishedClipRecord[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) return [];
+  try {
+    const idxRes = await fetch(
+      `${url}/storage/v1/object/public/blaast-captures/published-index.json`,
+      { cache: "no-store" },
+    );
+    if (!idxRes.ok) return [];
+    const rows = (await idxRes.json()) as PublishedClipRecord[];
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchCloudTable(): Promise<PublishedClipRecord[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/blaast_published_clips?select=*&order=published_at.desc`,
+      {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+        },
+        cache: "no-store",
+      },
+    );
+    if (!res.ok) return [];
+    const rows = (await res.json()) as Array<Record<string, unknown>>;
+    if (!Array.isArray(rows) || !rows.length) return [];
+    return rows.map((r) => {
+      const videoPath = String(r.video_path ?? "");
+      const posterPath = String(r.poster_path ?? "");
+      return {
+        id: String(r.id),
+        sessionId: String(r.session_id),
+        artifactId: String(r.artifact_id),
+        operatorId: String(r.operator_id),
+        operatorHostname: String(r.operator_hostname),
+        operatorName: String(r.operator_name),
+        coverageStepId: String(r.coverage_step_id),
+        instruction: String(r.instruction),
+        taxonomy: String(r.taxonomy),
+        tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+        annotations: Array.isArray(r.annotations)
+          ? (r.annotations as PublishedClipRecord["annotations"])
+          : [],
+        durationMs:
+          typeof r.duration_ms === "number" ? r.duration_ms : undefined,
+        pageUrl: r.page_url ? String(r.page_url) : undefined,
+        platform: String(r.platform ?? "desktop_web"),
+        market: r.market ? String(r.market) : undefined,
+        videoPath: videoPath.startsWith("http")
+          ? undefined
+          : videoPath || undefined,
+        posterPath: posterPath.startsWith("http")
+          ? undefined
+          : posterPath || undefined,
+        videoUrl: videoPath.startsWith("http") ? videoPath : undefined,
+        posterUrl: posterPath.startsWith("http") ? posterPath : undefined,
+        structurePath: r.structure_path
+          ? String(r.structure_path)
+          : undefined,
+        reviewStatus: "approved" as const,
+        publishedAt: String(r.published_at ?? new Date().toISOString()),
+        evidenceId: String(r.evidence_id ?? r.id),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 async function writePublished(rows: PublishedClipRecord[]) {
   await fs.mkdir(dataDir(), { recursive: true });
-  await fs.writeFile(publishPath(), JSON.stringify(rows, null, 2), "utf8");
-  await uploadPublishedIndex(rows);
+  // Merge with cloud before overwrite so one machine cannot wipe another brand
+  const cloud = await fetchCloudIndex();
+  const merged = mergeByArtifactId(cloud, rows);
+  await fs.writeFile(publishPath(), JSON.stringify(merged, null, 2), "utf8");
+  await uploadPublishedIndex(merged);
 }
 
 /** Durable catalog for Vercel when Postgres table isn’t applied yet. */
@@ -158,11 +274,9 @@ export async function publishApprovedArtifact(
     console.error("[publishApprovedArtifact] storage upload", err);
   }
 
-  const rows = await readPublished();
-  const next = [
-    ...rows.filter((r) => r.artifactId !== art.id),
-    record,
-  ];
+  // Merge against local+cloud so one publish never drops another brand
+  const rows = await listPublishedClipsMerged();
+  const next = mergeByArtifactId(rows, [record]);
   await writePublished(next);
 
   await maybePublishToSupabase(record);
@@ -178,6 +292,37 @@ export async function publishApprovedArtifact(
   return record;
 }
 
+/**
+ * Re-publish every approved artifact in admin sessions.
+ * Recovers library when local JSON / cloud index drifted or was overwritten.
+ */
+export async function republishAllApproved(): Promise<{
+  published: number;
+  failed: number;
+}> {
+  const sessions = await listSessions();
+  let published = 0;
+  let failed = 0;
+  for (const session of sessions) {
+    for (const art of session.artifacts ?? []) {
+      if (art.reviewStatus !== "approved") continue;
+      try {
+        await publishApprovedArtifact(session, art);
+        published += 1;
+      } catch (err) {
+        failed += 1;
+        console.error(
+          "[republishAllApproved]",
+          art.id,
+          art.coverageStepId,
+          err,
+        );
+      }
+    }
+  }
+  return { published, failed };
+}
+
 export async function listPublishedClips() {
   return listPublishedClipsMerged();
 }
@@ -187,7 +332,7 @@ export async function patchPublishedAnnotations(
   artifactId: string,
   annotations: NonNullable<RecordingArtifact["annotations"]>,
 ) {
-  const rows = await readPublished();
+  const rows = await listPublishedClipsMerged();
   const idx = rows.findIndex((r) => r.artifactId === artifactId);
   if (idx < 0) return false;
   rows[idx]!.annotations = annotations;
@@ -240,80 +385,12 @@ async function maybePublishToSupabase(record: PublishedClipRecord) {
   }
 }
 
-/** Prefer cloud catalog when local JSON is empty (Vercel). */
+/** Always merge local + cloud index + Postgres — never drop a brand. */
 export async function listPublishedClipsMerged(): Promise<PublishedClipRecord[]> {
   const local = await readPublished();
-  if (local.length) return local;
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY;
-  if (!url || !key) return local;
-
-  // 1) Storage JSON index (works without SQL migration)
-  try {
-    const idxRes = await fetch(
-      `${url}/storage/v1/object/public/blaast-captures/published-index.json`,
-      { next: { revalidate: 30 } },
-    );
-    if (idxRes.ok) {
-      const rows = (await idxRes.json()) as PublishedClipRecord[];
-      if (Array.isArray(rows) && rows.length) return rows;
-    }
-  } catch {
-    /* fall through */
-  }
-
-  // 2) Postgres table when migration applied
-  const res = await fetch(
-    `${url}/rest/v1/blaast_published_clips?select=*&order=published_at.desc`,
-    {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-      },
-      next: { revalidate: 30 },
-    },
-  );
-  if (!res.ok) return local;
-  const rows = (await res.json()) as Array<Record<string, unknown>>;
-  if (!Array.isArray(rows) || !rows.length) return local;
-
-  return rows.map((r) => {
-    const videoPath = String(r.video_path ?? "");
-    const posterPath = String(r.poster_path ?? "");
-    return {
-      id: String(r.id),
-      sessionId: String(r.session_id),
-      artifactId: String(r.artifact_id),
-      operatorId: String(r.operator_id),
-      operatorHostname: String(r.operator_hostname),
-      operatorName: String(r.operator_name),
-      coverageStepId: String(r.coverage_step_id),
-      instruction: String(r.instruction),
-      taxonomy: String(r.taxonomy),
-      tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
-      annotations: Array.isArray(r.annotations)
-        ? (r.annotations as PublishedClipRecord["annotations"])
-        : [],
-      durationMs:
-        typeof r.duration_ms === "number" ? r.duration_ms : undefined,
-      pageUrl: r.page_url ? String(r.page_url) : undefined,
-      platform: String(r.platform ?? "desktop_web"),
-      market: r.market ? String(r.market) : undefined,
-      videoPath: videoPath.startsWith("http") ? undefined : videoPath || undefined,
-      posterPath: posterPath.startsWith("http")
-        ? undefined
-        : posterPath || undefined,
-      videoUrl: videoPath.startsWith("http") ? videoPath : undefined,
-      posterUrl: posterPath.startsWith("http") ? posterPath : undefined,
-      structurePath: r.structure_path
-        ? String(r.structure_path)
-        : undefined,
-      reviewStatus: "approved" as const,
-      publishedAt: String(r.published_at ?? new Date().toISOString()),
-      evidenceId: String(r.evidence_id ?? r.id),
-    };
-  });
+  const [indexRows, tableRows] = await Promise.all([
+    fetchCloudIndex(),
+    fetchCloudTable(),
+  ]);
+  return mergeByArtifactId(tableRows, indexRows, local);
 }
