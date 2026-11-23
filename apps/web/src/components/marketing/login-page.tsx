@@ -45,6 +45,9 @@ function friendlyOAuthError(raw: string | null): string | null {
   if (/GOOGLE_CLIENT_ID|not configured/i.test(raw)) {
     return "Google sign-in isn’t set up yet — use email below for now.";
   }
+  if (/redirect_uri|redirect URI|mismatch/i.test(raw)) {
+    return "Google blocked sign-in (redirect URI mismatch). Add the callback URL shown below in Google Cloud → Credentials.";
+  }
   return raw;
 }
 
@@ -128,6 +131,28 @@ export function LoginPage() {
                 Continue with Google
               </a>
             )}
+            {(error && /redirect|mismatch|Google blocked/i.test(error)) ||
+            search.get("oauth") === "setup" ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-left text-[11px] leading-relaxed text-amber-100/90">
+                <p className="font-medium text-amber-50">
+                  Add both callbacks in Google Cloud → Credentials (exact match):
+                </p>
+                <code className="mt-1 block break-all text-[10px] text-white/80">
+                  https://blaast-five.vercel.app/api/auth/google/callback
+                </code>
+                <code className="mt-1 block break-all text-[10px] text-white/80">
+                  http://localhost:3000/api/auth/google/callback
+                </code>
+                <a
+                  className="mt-2 inline-block underline"
+                  href="https://console.cloud.google.com/apis/credentials"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open Google Credentials →
+                </a>
+              </div>
+            ) : null}
             <div className="flex items-center gap-3 py-0.5 text-[12px] text-[#8a8a8a]">
               <span className="h-px flex-1 bg-white/[0.12]" />
               or

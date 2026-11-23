@@ -15,7 +15,10 @@ exactly in Google Cloud (scheme + host + path must match).
 4. Authorized redirect URIs (must match exactly — no trailing slash):
    - `http://localhost:3000/api/auth/google/callback`
    - `https://blaast-five.vercel.app/api/auth/google/callback`
-5. Copy Client ID + Client Secret.
+5. Copy Client ID + Client Secret into **the same** OAuth client you edited
+   (prod `GOOGLE_CLIENT_ID` must be that client — mismatch here also causes
+   `redirect_uri_mismatch`).
+6. Confirm live URI: open `/api/auth/google/setup` on the host you’re testing.
 6. If the app is in **Testing**, add your Gmail under **OAuth consent screen → Test users**.
 
 ## Env (local + Vercel)

@@ -134,6 +134,14 @@ const routes: Route[] = [
   },
   {
     match: (parts) => {
+      if (parts.length !== 3) return null;
+      if (!(parts[0] === "auth" && parts[1] === "google" && parts[2] === "setup")) return null;
+      return {  } as Record<string, string>;
+    },
+    load: () => import("@/lib/api-handlers/auth_google_setup") as unknown as Promise<Handlers>,
+  },
+  {
+    match: (parts) => {
       if (parts.length !== 2) return null;
       if (!(parts[0] === "auth" && parts[1] === "google")) return null;
       return {  } as Record<string, string>;
