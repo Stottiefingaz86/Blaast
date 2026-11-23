@@ -17,3 +17,4 @@ node_modules/
 agent-transcripts/
 igaming-intelligence-cursor-starter.zip
 _extracted/
+apps/web/supabase/.temp/
