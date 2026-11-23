@@ -85,7 +85,7 @@ async function fetchCloudIndex(): Promise<PublishedClipRecord[]> {
   if (!url || !key) return [];
   try {
     const idxRes = await fetch(
-      `${url}/storage/v1/object/public/blaast-captures/published-index.json`,
+      `${url}/storage/v1/object/public/blaast-captures/published-index.json?t=${Date.now()}`,
       { cache: "no-store" },
     );
     if (!idxRes.ok) return [];
@@ -327,6 +327,57 @@ export async function listPublishedClips() {
   return listPublishedClipsMerged();
 }
 
+/**
+ * Remove a clip from the public library (local + Storage index).
+ * Does not merge-restore from cloud — the filtered list becomes the new source of truth.
+ */
+export async function unpublishArtifact(artifactId: string): Promise<boolean> {
+  if (!artifactId) return false;
+  const rows = await listPublishedClipsMerged();
+  const next = rows.filter((r) => r.artifactId !== artifactId);
+  if (next.length === rows.length) return false;
+  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.writeFile(publishPath(), JSON.stringify(next, null, 2), "utf8");
+  await uploadPublishedIndex(next);
+  await maybeDeleteFromSupabase(artifactId);
+  try {
+    const { rebuildPatternIndex } = await import("@/lib/patterns/aggregate");
+    await rebuildPatternIndex();
+  } catch (err) {
+    console.error("[unpublishArtifact] pattern index", err);
+  }
+  return true;
+}
+
+/** Drop published rows that are not currently approved in admin sessions. */
+export async function pruneUnapprovedPublished(): Promise<{
+  removed: string[];
+  kept: number;
+}> {
+  const sessions = await listSessions();
+  const approved = new Set<string>();
+  for (const session of sessions) {
+    for (const art of session.artifacts ?? []) {
+      if (art.reviewStatus === "approved") approved.add(art.id);
+    }
+  }
+  const rows = await listPublishedClipsMerged();
+  const keptRows = rows.filter((r) => approved.has(r.artifactId));
+  const removed = rows
+    .filter((r) => !approved.has(r.artifactId))
+    .map((r) => `${r.operatorHostname}:${r.coverageStepId}:${r.artifactId}`);
+  if (removed.length) {
+    await fs.mkdir(dataDir(), { recursive: true });
+    await fs.writeFile(
+      publishPath(),
+      JSON.stringify(keptRows, null, 2),
+      "utf8",
+    );
+    await uploadPublishedIndex(keptRows);
+  }
+  return { removed, kept: keptRows.length };
+}
+
 /** Persist annotation posterPath / enrich fields back into published JSON. */
 export async function patchPublishedAnnotations(
   artifactId: string,
@@ -382,6 +433,35 @@ async function maybePublishToSupabase(record: PublishedClipRecord) {
   if (!res.ok) {
     const text = await res.text();
     console.error("[supabase publish]", res.status, text);
+  }
+}
+
+async function maybeDeleteFromSupabase(artifactId: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) return;
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/blaast_published_clips?artifact_id=eq.${encodeURIComponent(artifactId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+        },
+      },
+    );
+    if (!res.ok && res.status !== 404) {
+      console.error(
+        "[supabase unpublish]",
+        res.status,
+        (await res.text()).slice(0, 200),
+      );
+    }
+  } catch (err) {
+    console.error("[supabase unpublish]", err);
   }
 }
 

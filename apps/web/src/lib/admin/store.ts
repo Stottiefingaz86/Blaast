@@ -461,7 +461,7 @@ export async function setArtifactReview(
   session.updatedAt = new Date().toISOString();
   await writeStore(store);
 
-  // Side-effect publish for library / MCP (best-effort)
+  // Side-effect publish / unpublish for library / MCP (best-effort)
   if (reviewStatus === "approved") {
     try {
       const { publishApprovedArtifact } = await import(
@@ -470,6 +470,13 @@ export async function setArtifactReview(
       await publishApprovedArtifact(session, art);
     } catch (err) {
       console.error("[publishApprovedArtifact]", err);
+    }
+  } else if (reviewStatus === "rejected") {
+    try {
+      const { unpublishArtifact } = await import("@/lib/evidence/publish");
+      await unpublishArtifact(artifactId);
+    } catch (err) {
+      console.error("[unpublishArtifact]", err);
     }
   }
 
@@ -513,28 +520,26 @@ export async function deleteRecordingArtifact(
     delete session.liveAnnotations[art.coverageStepId];
   }
 
-  // Reset to step 1 so the operator can re-record from the start
-  const step1 = session.items[0]?.playbookItemId;
-  if (step1) {
-    const first = session.items[0]!;
-    if (first.status === "done" || first.status === "skipped") {
-      first.status = "todo";
-      first.completedAt = undefined;
-      first.artifactId = undefined;
-      first.captureCount = 0;
-    }
-    session.guide = {
-      currentStepId: step1,
-      phase: "idle",
-      commandSeq: (session.guide?.commandSeq ?? 0) + 1,
-    };
-    if (session.status === "review" || session.status === "done") {
-      session.status = "in_progress";
-    }
+  // Stay on the deleted step so re-record doesn't force picking step 1 again
+  session.guide = {
+    currentStepId: art.coverageStepId,
+    phase: "idle",
+    commandSeq: (session.guide?.commandSeq ?? 0) + 1,
+  };
+  if (session.status === "review" || session.status === "done") {
+    session.status = "in_progress";
   }
 
   session.updatedAt = new Date().toISOString();
   await writeStore(store);
+
+  try {
+    const { unpublishArtifact } = await import("@/lib/evidence/publish");
+    await unpublishArtifact(artifactId);
+  } catch (err) {
+    console.error("[unpublishArtifact]", err);
+  }
+
   return session;
 }
 

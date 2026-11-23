@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { AddOperatorForm } from "@/components/admin/add-operator-form";
-import { listOperators } from "@/lib/admin/store";
+import { CaptureQueuePanel } from "@/components/admin/capture-queue-panel";
+import { buildCaptureQueue } from "@/lib/admin/capture-queue";
+import { listOperators, listSessions } from "@/lib/admin/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function OperatorsPage() {
-  const operators = await listOperators();
+  const [operators, sessions] = await Promise.all([
+    listOperators(),
+    listSessions(),
+  ]);
+  const queue = buildCaptureQueue(operators, sessions);
 
   return (
     <AdminShell title="Sites">
@@ -27,7 +33,7 @@ export default async function OperatorsPage() {
           <div className="mt-3 flex flex-col gap-1">
             {operators.length === 0 && (
               <p className="px-2 py-6 text-[13px] text-neutral-400">
-                No sites yet.
+                No sites yet — pick from the queue below.
               </p>
             )}
             {operators.map((op) => (
@@ -57,6 +63,8 @@ export default async function OperatorsPage() {
           </div>
         </section>
       </div>
+
+      <CaptureQueuePanel rows={queue} />
     </AdminShell>
   );
 }

@@ -55,6 +55,7 @@ export function CaptureStage({
   const [lastClip, setLastClip] = useState<RecordingArtifact | null>(null);
   const [reviewClipId, setReviewClipId] = useState<string | null>(null);
   const [siteOpen, setSiteOpen] = useState(false);
+  const [shareLive, setShareLive] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -67,6 +68,25 @@ export function CaptureStage({
   const intentionalStopRef = useRef(false);
   const pendingLoadReloadRef = useRef(false);
   const finishingRef = useRef(false);
+
+  function streamIsLive(stream: MediaStream | null | undefined) {
+    return Boolean(
+      stream?.getVideoTracks().some((t) => t.readyState === "live"),
+    );
+  }
+
+  function releaseShare() {
+    if (stopTimerRef.current) {
+      clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    mediaRecorderRef.current = null;
+    chunksRef.current = [];
+    startedAtRef.current = null;
+    setShareLive(false);
+  }
 
   const currentStepId =
     session.guide?.currentStepId ??
@@ -252,18 +272,6 @@ export function CaptureStage({
     }
   }
 
-  function cleanupStream() {
-    if (stopTimerRef.current) {
-      clearTimeout(stopTimerRef.current);
-      stopTimerRef.current = null;
-    }
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    mediaRecorderRef.current = null;
-    chunksRef.current = [];
-    startedAtRef.current = null;
-  }
-
   async function beginRecording(opts?: { reloadForLoad?: boolean }) {
     if (!step) return;
     intentionalStopRef.current = false;
@@ -272,40 +280,80 @@ export function CaptureStage({
     try {
       if (!siteWinRef.current || siteWinRef.current.closed) {
         openSite();
-      }
-      // Prefer sharing the site *Window* — Chrome Tab share often dies on refresh.
-      const displayOpts = {
-        video: { displaySurface: "window" },
-        audio: false,
-        preferCurrentTab: false,
-        selfBrowserSurface: "exclude",
-        surfaceSwitching: "include",
-        monitorTypeSurfaces: "exclude",
-      } as DisplayMediaStreamOptions;
-      const stream = await navigator.mediaDevices.getDisplayMedia(displayOpts);
-      streamRef.current = stream;
-
-      const surface = stream.getVideoTracks()[0]?.getSettings?.().displaySurface;
-      if (surface === "browser") {
-        toast.message(
-          "You shared a Chrome tab — browser refresh can kill the recording. Use Reload site here, or share the Window next time.",
-          { duration: 6000 },
-        );
+        // Give the site window a beat to open before the share picker
+        await new Promise((r) => setTimeout(r, 400));
+      } else {
+        try {
+          siteWinRef.current.focus();
+        } catch {
+          /* ignore */
+        }
       }
 
-      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
-        if (intentionalStopRef.current || finishingRef.current) return;
-        toast.error(
-          "Share ended (often: refreshed a shared Tab). Share the site Window, or use Reload site while recording.",
-        );
-        void finishRecording();
-      });
+      let stream = streamRef.current;
+      const reusing = streamIsLive(stream);
+      if (!reusing) {
+        // Prefer sharing the site *Window* — Chrome Tab share often dies on refresh.
+        // Browser security still requires one picker click; we keep that share for later clips.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const CaptureControllerCtor = (window as any).CaptureController as
+          | (new () => { setFocusBehavior: (b: string) => void })
+          | undefined;
+        let controller: { setFocusBehavior: (b: string) => void } | undefined;
+        if (typeof CaptureControllerCtor === "function") {
+          controller = new CaptureControllerCtor();
+          try {
+            controller.setFocusBehavior("focus-captured-surface");
+          } catch {
+            /* ignore */
+          }
+        }
+
+        const displayOpts = {
+          video: { displaySurface: "window" },
+          audio: false,
+          preferCurrentTab: false,
+          selfBrowserSurface: "exclude",
+          surfaceSwitching: "include",
+          monitorTypeSurfaces: "exclude",
+          ...(controller ? { controller } : {}),
+        } as DisplayMediaStreamOptions;
+
+        stream = await navigator.mediaDevices.getDisplayMedia(displayOpts);
+        streamRef.current = stream;
+        setShareLive(true);
+
+        const surface = stream.getVideoTracks()[0]?.getSettings?.().displaySurface;
+        if (surface === "browser") {
+          toast.message(
+            "Shared a Chrome tab — use Reload site here if refresh kills the share. Prefer Window next time.",
+            { duration: 5000 },
+          );
+        } else {
+          toast.message(
+            "Window locked in — next clips reuse this share (no picker).",
+            { duration: 4000 },
+          );
+        }
+
+        stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+          setShareLive(false);
+          streamRef.current = null;
+          if (intentionalStopRef.current || finishingRef.current) return;
+          toast.error(
+            "Share ended. Start recording again and pick the site window once.",
+          );
+          if (mediaRecorderRef.current?.state === "recording") {
+            void finishRecording();
+          }
+        });
+      }
 
       chunksRef.current = [];
       const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
         ? "video/webm;codecs=vp9"
         : "video/webm";
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      const recorder = new MediaRecorder(stream!, { mimeType: mime });
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (e) => {
         if (e.data.size) chunksRef.current.push(e.data);
@@ -337,13 +385,15 @@ export function CaptureStage({
         toast.message(
           "Recording — site reloading for loader. Hit Stop when home looks done.",
         );
+      } else if (reusing) {
+        toast.message("Recording (same window). Hit Stop when done.");
       } else {
         toast.message(
-          "Recording until you hit Stop. Use Reload site to catch the homepage loader.",
+          "Recording until Stop. Next beat keeps this window — no re-select.",
         );
       }
     } catch (err) {
-      cleanupStream();
+      if (!streamIsLive(streamRef.current)) releaseShare();
       setRecState("idle");
       toast.error(
         err instanceof Error
@@ -365,18 +415,17 @@ export function CaptureStage({
     if (mediaRecorderRef.current?.state === "recording") {
       setRecState("uploading");
       posterRef.current = await capturePoster();
+      // Stop recorder only — keep the display share for the next beat
       mediaRecorderRef.current.stop();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
     } else {
       setRecState("idle");
-      cleanupStream();
       finishingRef.current = false;
     }
   }
 
   async function uploadRecording() {
     if (!step) {
-      cleanupStream();
+      finishingRef.current = false;
       setRecState("idle");
       return;
     }
@@ -418,7 +467,11 @@ export function CaptureStage({
       setLastClip(art);
       setSession(data.session);
       setReviewClipId(art.id);
-      toast.success("Clip saved — open it to tag sections");
+      toast.success(
+        streamIsLive(streamRef.current)
+          ? "Clip saved — next Record reuses this window"
+          : "Clip saved — open it to tag sections",
+      );
       await patchGuide({
         currentStepId:
           data.session.guide?.currentStepId ?? step.id,
@@ -433,11 +486,25 @@ export function CaptureStage({
         recordingStartedAt: null,
       });
     } finally {
-      cleanupStream();
+      mediaRecorderRef.current = null;
+      chunksRef.current = [];
+      startedAtRef.current = null;
+      if (stopTimerRef.current) {
+        clearTimeout(stopTimerRef.current);
+        stopTimerRef.current = null;
+      }
+      setShareLive(streamIsLive(streamRef.current));
       finishingRef.current = false;
       setRecState("idle");
     }
   }
+
+  // Drop the share when the stage window closes
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   const countdownModeRef = useRef<"normal" | "page_load">("normal");
 
@@ -540,7 +607,7 @@ export function CaptureStage({
     setSession(data.session);
     if (lastClip?.id === clip.id) setLastClip(null);
     if (reviewClipId === clip.id) setReviewClipId(null);
-    toast.success("Clip deleted — back on step 1");
+    toast.success("Clip deleted — stay on this step to re-record");
   }
 
   const reviewClip =
@@ -659,13 +726,26 @@ export function CaptureStage({
           </>
         ) : (
           <>
+            {shareLive && (
+              <span className="hidden items-center gap-1.5 rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-medium text-emerald-200 sm:inline-flex">
+                Window locked
+                <button
+                  type="button"
+                  onClick={releaseShare}
+                  className="underline opacity-80 hover:opacity-100"
+                  title="Drop the shared window (next Record will ask again)"
+                >
+                  release
+                </button>
+              </span>
+            )}
             <button
               type="button"
               disabled={busy || !step}
               onClick={() => void startCountdown("normal")}
               className="inline-flex h-9 items-center rounded-full bg-white px-4 text-[13px] font-semibold text-neutral-950 disabled:opacity-40"
             >
-              Start recording
+              {shareLive ? "Record next" : "Start recording"}
             </button>
             <button
               type="button"
@@ -898,17 +978,16 @@ export function CaptureStage({
           </div>
 
           <ol className="max-w-sm space-y-1.5 text-left text-[12px] leading-relaxed text-white/45">
-            <li>1. Open the site window (auto if popups allowed).</li>
+            <li>1. Site window opens automatically (allow popups once).</li>
             <li>
-              2. Start recording — share the{" "}
-              <span className="text-white/70">{operator.name} Window</span>, not
-              a Chrome Tab.
+              2. First Record — pick the{" "}
+              <span className="text-white/70">{operator.name} Window</span> once
+              (Chrome requires it). Later beats reuse that share.
             </li>
             <li>
-              3. For loaders:{" "}
-              <span className="text-white/70">Record page load</span> or{" "}
-              <span className="text-white/70">Reload site</span> while REC is on
-              — don’t hit browser refresh on a shared Tab.
+              3. Loaders:{" "}
+              <span className="text-white/70">Record page load</span> /{" "}
+              <span className="text-white/70">Reload site</span> while REC is on.
             </li>
           </ol>
 

@@ -3,6 +3,8 @@ import {
   AdminShell,
   adminPrimaryBtn,
 } from "@/components/admin/admin-shell";
+import { CaptureQueuePanel } from "@/components/admin/capture-queue-panel";
+import { buildCaptureQueue } from "@/lib/admin/capture-queue";
 import { listOperators, listSessions } from "@/lib/admin/store";
 import { COVERAGE_STEPS } from "@/lib/admin/coverage-pack";
 
@@ -14,6 +16,10 @@ export default async function AdminHomePage() {
     listSessions(),
   ]);
   const active = sessions.filter((s) => s.status === "in_progress").length;
+  const queue = buildCaptureQueue(operators, sessions);
+  const remaining = queue.filter(
+    (r) => r.status === "todo" || r.status === "in_progress",
+  ).length;
 
   return (
     <AdminShell
@@ -24,27 +30,31 @@ export default async function AdminHomePage() {
         </Link>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Sites" value={operators.length} />
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Stat label="Sites added" value={operators.length} />
+        <Stat label="Queue remaining" value={remaining} />
         <Stat label="Active sessions" value={active} />
         <Stat label="Coverage beats" value={COVERAGE_STEPS.length} />
       </div>
 
+      <CaptureQueuePanel rows={queue} remainingOnly limit={40} />
+
       <section className="rounded-[20px] border border-black/[0.06] bg-white p-6">
         <h2 className="text-[15px] font-semibold">Guided brand coverage</h2>
         <p className="mt-1 text-[13px] text-neutral-500">
-          Same taxonomy for every brand: instruction → 3-2-1 → short video →
-          next. Home → Sign up → Deposit first, then Place a bet / Casino — comparable results.
+          Same taxonomy for every brand: open site → record (share the window
+          once) → stop → next beat reuses the share. Home → Sign up → Deposit
+          first.
         </p>
         <ol className="mt-3 flex flex-col gap-2 text-[13px] text-neutral-600">
-          <li>1. Sites → Add site (products unlock packs).</li>
-          <li>2. Start brand coverage → copy session ID.</li>
-          <li>3. Open the operator → Blaast Capture → paste session ID → Start.</li>
-          <li>4. Follow each beat in admin; extension records & uploads.</li>
+          <li>1. Sites → Add site from the queue (or paste a URL).</li>
+          <li>2. Start Desktop E2E → allow popups → site window opens.</li>
+          <li>
+            3. Start recording → pick that window once → Stop when the beat is
+            done. Later clips keep the same share.
+          </li>
+          <li>4. Approve on the desk — only approved clips hit the library.</li>
         </ol>
-        <p className="mt-3 text-[12px] text-neutral-400">
-          Admin URL: /admin — not linked from the public header.
-        </p>
       </section>
 
       {sessions.slice(0, 6).length > 0 && (
