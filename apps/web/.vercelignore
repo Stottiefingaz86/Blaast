@@ -1,0 +1,10 @@
+.data
+.data/**
+.next
+.next/**
+node_modules
+node_modules/**
+*.webm
+*.mp4
+.tsbuildinfo
+.env*.local

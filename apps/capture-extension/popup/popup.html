@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blaast Capture</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <strong>Blaast Capture</strong>
+      <span id="status" class="muted">Idle</span>
+    </header>
+
+    <label class="field">
+      Admin session ID
+      <input
+        id="admin-session"
+        type="text"
+        placeholder="Paste from /admin/capture/…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </label>
+
+    <label class="field">
+      API base
+      <input id="api-base" type="text" placeholder="http://localhost:3000" />
+    </label>
+
+    <label class="field">
+      Journey label
+      <input id="journey" type="text" placeholder="optional" />
+    </label>
+
+    <div class="row">
+      <button id="btn-start" type="button">Start session</button>
+      <button id="btn-stop-beat" type="button" class="danger" disabled>
+        Stop beat
+      </button>
+    </div>
+    <div class="row">
+      <button id="btn-capture" type="button" disabled>Still shot</button>
+      <button id="btn-stop" type="button" disabled>End session</button>
+    </div>
+
+    <p class="hint muted">
+      Link the session ID from the guided desk. When admin hits Ready → 3-2-1, this
+      extension records the beat and uploads. Hotkey Alt+Shift+S = still / stop beat.
+    </p>
+
+    <div id="error" class="error" hidden></div>
+
+    <section>
+      <h2>Local steps <span id="count" class="muted">0</span></h2>
+      <ul id="steps"></ul>
+    </section>
+
+    <div class="row">
+      <button id="btn-clear" type="button" class="ghost">Clear local</button>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

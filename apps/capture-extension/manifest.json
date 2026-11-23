@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Blaast Capture",
+  "description": "Guided iGaming UI capture for Blaast — countdown beats, short clips, measured structure. No passwords, cookies, or payment values.",
+  "version": "0.2.0",
+  "action": {
+    "default_title": "Blaast Capture",
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "tabCapture",
+    "offscreen",
+    "alarms"
+  ],
+  "host_permissions": ["http://localhost:3000/*", "http://127.0.0.1:3000/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "commands": {
+    "capture-step": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Capture current viewport / beat"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content/structure.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

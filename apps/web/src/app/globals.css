@@ -1,0 +1,424 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+  }
+  .dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Mobbin-matched library surface — soft charcoal layers, not pure black */
+@layer components {
+  .lib-surface {
+    --lib-bg: #111111;
+    --lib-elevated: #161616;
+    --lib-card: #1a1a1a;
+    --lib-card-hover: #222222;
+    --lib-chip: #1f1f1f;
+    --lib-chip-active: #2a2a2a;
+    --lib-hairline: rgba(255, 255, 255, 0.06);
+    --lib-text: #f5f5f5;
+    --lib-muted: #8a8a8a;
+    --lib-faint: #636363;
+    background: var(--lib-bg);
+    color: var(--lib-text);
+    /* Mobbin uses M Saans; DM Sans is the free geometric match for library chrome */
+    font-family: var(--font-lib), ui-sans-serif, system-ui, sans-serif;
+  }
+  .lib-chrome {
+    /* Solid — translucent chrome lets transformed cards paint “over” sticky nav */
+    background: var(--lib-elevated);
+    border-color: var(--lib-hairline);
+  }
+  .lib-card {
+    background: var(--lib-card);
+  }
+  .lib-card:hover {
+    background: var(--lib-card-hover);
+  }
+  .lib-muted {
+    color: var(--lib-muted);
+  }
+  .lib-faint {
+    color: var(--lib-faint);
+  }
+  .lib-chip {
+    background: var(--lib-chip);
+  }
+  .lib-chip-active {
+    background: var(--lib-chip-active);
+  }
+  .lib-search {
+    background: var(--lib-chip);
+  }
+  .lib-search:focus-within {
+    background: var(--lib-chip-active);
+  }
+  .lib-glide {
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .lib-hairline {
+    border-color: var(--lib-hairline);
+  }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: blaast-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-fade-in {
+    animation: blaast-fade-in 0.4s ease-out both;
+  }
+  .animate-scale-in {
+    animation: blaast-scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .stagger-1 {
+    animation-delay: 60ms;
+  }
+  .stagger-2 {
+    animation-delay: 120ms;
+  }
+  .stagger-3 {
+    animation-delay: 180ms;
+  }
+  .stagger-4 {
+    animation-delay: 240ms;
+  }
+}
+
+@keyframes blaast-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blaast-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes blaast-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes blaast-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float {
+  animation: blaast-float 5s ease-in-out infinite;
+}
+
+/* Floating logo bubbles in hero headline */
+@keyframes logo-bubble-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-3px) rotate(-2deg);
+  }
+  66% {
+    transform: translateY(2px) rotate(2deg);
+  }
+}
+
+@keyframes logo-bubble-orbit {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translate(3px, -4px) rotate(-8deg) scale(1.08);
+  }
+  50% {
+    transform: translate(-2px, -5px) rotate(6deg) scale(1.12);
+  }
+  75% {
+    transform: translate(-4px, 2px) rotate(-4deg) scale(1.06);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes logo-bubble-pulse-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+@keyframes logo-bubble-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.72) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes logo-bubble-exit {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.78) translateY(-4px);
+  }
+}
+
+.logo-bubble {
+  animation: logo-bubble-float 4.2s ease-in-out infinite;
+}
+
+.logo-bubble:hover {
+  animation: logo-bubble-orbit 0.85s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.logo-bubble:hover .logo-bubble-pulse {
+  animation: logo-bubble-pulse-ring 0.7s ease-out;
+}
+
+.logo-bubble-enter {
+  animation: logo-bubble-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.logo-bubble-exit {
+  animation: logo-bubble-exit 0.28s ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-bubble,
+  .logo-bubble:hover,
+  .logo-bubble:hover .logo-bubble-pulse,
+  .logo-bubble-enter,
+  .logo-bubble-exit {
+    animation: none !important;
+  }
+  .logo-marquee-track,
+  .logo-marquee-track-reverse {
+    animation: none !important;
+  }
+}
+
+@keyframes logo-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes logo-marquee-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.logo-marquee-track {
+  animation: logo-marquee 55s linear infinite;
+}
+
+.logo-marquee-track-reverse {
+  animation-name: logo-marquee-reverse;
+}
+
+.logo-marquee:hover .logo-marquee-track,
+.logo-marquee:hover .logo-marquee-track-reverse {
+  animation-play-state: paused;
+}
+
+/* Auth signup collage — vertical phone columns */
+@keyframes auth-phone-marquee-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+@keyframes auth-phone-marquee-down {
+  from {
+    transform: translateY(-50%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.auth-phone-marquee-up {
+  animation-name: auth-phone-marquee-up;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.auth-phone-marquee-down {
+  animation-name: auth-phone-marquee-down;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-phone-marquee-up,
+  .auth-phone-marquee-down {
+    animation: none !important;
+  }
+}
+
+@keyframes blaast-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes blaast-route-progress {
+  0% {
+    transform: scaleX(0);
+  }
+  40% {
+    transform: scaleX(0.55);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
