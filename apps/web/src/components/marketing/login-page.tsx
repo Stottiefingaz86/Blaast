@@ -131,8 +131,7 @@ export function LoginPage() {
                 Continue with Google
               </a>
             )}
-            {(error && /redirect|mismatch|Google blocked/i.test(error)) ||
-            search.get("oauth") === "setup" ? (
+            {error && /redirect|mismatch|Google blocked/i.test(error) ? (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-left text-[11px] leading-relaxed text-amber-100/90">
                 <p className="font-medium text-amber-50">
                   Add both callbacks in Google Cloud → Credentials (exact match):
