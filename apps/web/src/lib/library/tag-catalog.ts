@@ -9,6 +9,11 @@ export type CuratedTagMeta = {
   order: number;
   /** Product surface for UI Elements category chips */
   category: LibraryCategory;
+  /**
+   * Parent screen chip (global taxonomy).
+   * e.g. single_bet / combo → "betslip" so Library → Betslip includes them.
+   */
+  parentScreen?: string;
   /** Extra search terms (e.g. popular → trending_slots) */
   synonyms: string[];
 };
@@ -239,30 +244,77 @@ export const CURATED_UI_TAGS: Record<string, CuratedTagMeta> = {
     title: "Betslip",
     order: 47,
     category: "Sports",
+    parentScreen: "betslip",
     synonyms: ["betslip", "stake", "ticket"],
   },
   closed_betslip: {
-    title: "Betslip",
+    title: "Closed betslip",
     order: 47,
     category: "Sports",
+    parentScreen: "betslip",
     synonyms: ["betslip", "closed"],
   },
   single_bet: {
     title: "Single bet",
     order: 48,
     category: "Sports",
+    parentScreen: "betslip",
+    synonyms: ["single", "betslip"],
+  },
+  single: {
+    title: "Single bet",
+    order: 48,
+    category: "Sports",
+    parentScreen: "betslip",
     synonyms: ["single", "betslip"],
   },
   "combo,_parlay,_acca": {
     title: "Combo / parlay",
     order: 49,
     category: "Sports",
+    parentScreen: "betslip",
+    synonyms: ["parlay", "acca", "combo", "multi"],
+  },
+  combo_parlay_acca: {
+    title: "Combo / parlay",
+    order: 49,
+    category: "Sports",
+    parentScreen: "betslip",
+    synonyms: ["parlay", "acca", "combo", "multi"],
+  },
+  combo: {
+    title: "Combo / parlay",
+    order: 49,
+    category: "Sports",
+    parentScreen: "betslip",
+    synonyms: ["parlay", "acca", "combo", "multi"],
+  },
+  parlay: {
+    title: "Combo / parlay",
+    order: 49,
+    category: "Sports",
+    parentScreen: "betslip",
     synonyms: ["parlay", "acca", "combo", "multi"],
   },
   "same_game_parlays,_acca": {
     title: "Same game parlay",
     order: 50,
     category: "Sports",
+    parentScreen: "betslip",
+    synonyms: ["sgp", "parlay", "bet builder"],
+  },
+  same_game_parlay: {
+    title: "Same game parlay",
+    order: 50,
+    category: "Sports",
+    parentScreen: "betslip",
+    synonyms: ["sgp", "parlay", "bet builder"],
+  },
+  sgp: {
+    title: "Same game parlay",
+    order: 50,
+    category: "Sports",
+    parentScreen: "betslip",
     synonyms: ["sgp", "parlay", "bet builder"],
   },
 
@@ -337,12 +389,47 @@ export const CURATED_UI_TAGS: Record<string, CuratedTagMeta> = {
 
 /** Normalize raw annotation tags for lookup. */
 export function normalizeTagKey(tag: string): string {
-  return tag.trim().toLowerCase().replace(/\s+/g, "_");
+  return tag
+    .trim()
+    .toLowerCase()
+    .replace(/[,\s]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 export function curatedTagMeta(tag: string): CuratedTagMeta | undefined {
   const key = normalizeTagKey(tag);
-  return CURATED_UI_TAGS[key];
+  if (CURATED_UI_TAGS[key]) return CURATED_UI_TAGS[key];
+  // Legacy keys that kept literal commas in the map
+  const withCommas = key.replace(/_/g, ",_");
+  if (CURATED_UI_TAGS[withCommas]) return CURATED_UI_TAGS[withCommas];
+  return undefined;
+}
+
+/** Tags / UI titles that belong under a screen chip (e.g. Betslip → single, combo). */
+export function belongsToScreenChip(
+  chip: string,
+  opts: {
+    name?: string;
+    tags?: string[];
+    searchText?: string;
+    parentScreen?: string;
+  },
+): boolean {
+  const needle = chip.trim().toLowerCase();
+  if (!needle) return false;
+  if (opts.parentScreen?.toLowerCase() === needle) return true;
+  const hay = [opts.name, opts.searchText, ...(opts.tags ?? [])]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (hay.includes(needle)) return true;
+  for (const t of opts.tags ?? []) {
+    const meta = curatedTagMeta(t);
+    if (meta?.parentScreen?.toLowerCase() === needle) return true;
+    if (meta?.title.toLowerCase().includes(needle)) return true;
+  }
+  return false;
 }
 
 /** Search haystack for a curated tag + optional LLM synonyms. */

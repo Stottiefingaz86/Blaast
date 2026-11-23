@@ -145,13 +145,19 @@ function mediaUrls(rec: PublishedClipRecord, origin: string) {
     rec.clipWindow?.startMs != null
       ? `&t=${Math.round(rec.clipWindow.startMs)}`
       : "";
+  const hasVideo = Boolean(rec.videoPath || rec.videoUrl);
+  const hasPoster = Boolean(rec.posterPath || rec.posterUrl);
   return {
     posterUrl: rec.posterUrl?.startsWith("http")
       ? rec.posterUrl
-      : `${base}?file=poster${bust}`,
+      : hasPoster || hasVideo
+        ? `${base}?file=poster${bust}`
+        : undefined,
     videoUrl: rec.videoUrl?.startsWith("http")
       ? rec.videoUrl
-      : `${base}?file=video`,
+      : hasVideo
+        ? `${base}?file=video`
+        : undefined,
   };
 }
 
@@ -252,7 +258,7 @@ export async function listLibraryMedia(
         kind: kindFromCategory(category),
         taxonomy: "ui_element",
         tags: annTags,
-        hasVideo: Boolean(rec.videoPath),
+        hasVideo: Boolean(rec.videoPath || rec.videoUrl),
         posterUrl: annPoster,
         videoUrl: media.videoUrl,
         elementLabel: title,
@@ -440,7 +446,7 @@ export async function catalogFromPublished(
         name: title,
         count: 1,
         posterUrl: a.posterUrl,
-        videoUrl: a.hasVideo ? a.videoUrl : undefined,
+        videoUrl: a.hasVideo || a.videoUrl ? a.videoUrl : undefined,
         atMs: a.atMs,
         clipWindow:
           a.clipWindow ??
@@ -454,6 +460,7 @@ export async function catalogFromPublished(
         durationMs: a.durationMs,
         journey: a.journey,
         category,
+        parentScreen: curated.parentScreen,
         tags: a.tags,
         searchText: tagSearchText(rawTag, {
           title,

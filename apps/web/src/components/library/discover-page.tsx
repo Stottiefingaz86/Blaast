@@ -17,6 +17,7 @@ import {
 } from "@/components/library/filter-panel";
 import { LibrarySkeleton } from "@/components/brand/blaast-preloader";
 import type { CatalogOperator } from "@/lib/library/catalog";
+import { belongsToScreenChip } from "@/lib/library/tag-catalog";
 import type { PlatformFilter, SortKey } from "@/lib/library/taxonomy-nav";
 import { cn } from "@/lib/utils";
 
@@ -129,11 +130,34 @@ export function DiscoverPage() {
         p.flows.some((f) => /onboard|login|register/i.test(`${f.name} ${f.group}`))
       );
     }
+    // Betslip (and similar) — include parented UI: single, combo, SGP, closed
+    if (needle === "betslip") {
+      return (
+        p.screens.some((s) =>
+          /betslip/i.test(`${s.title} ${(s.tags ?? []).join(" ")} ${s.id}`),
+        ) ||
+        p.uiElements.some((u) =>
+          belongsToScreenChip("betslip", {
+            name: u.name,
+            tags: u.tags,
+            searchText: u.searchText,
+            parentScreen: u.parentScreen,
+          }),
+        ) ||
+        p.flows.some((f) => /betslip|place a bet/i.test(`${f.name} ${f.group}`))
+      );
+    }
     return (
       p.category.toLowerCase().includes(needle) ||
-      p.tagline.toLowerCase().includes(needle) ||
       p.screens.some((s) => s.title.toLowerCase().includes(needle)) ||
-      p.uiElements.some((u) => u.name.toLowerCase().includes(needle)) ||
+      p.uiElements.some((u) =>
+        belongsToScreenChip(needle, {
+          name: u.name,
+          tags: u.tags,
+          searchText: u.searchText,
+          parentScreen: u.parentScreen,
+        }),
+      ) ||
       p.flows.some(
         (f) =>
           f.name.toLowerCase().includes(needle) ||

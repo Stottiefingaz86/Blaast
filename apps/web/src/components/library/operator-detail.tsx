@@ -75,17 +75,13 @@ function HoverCapture(props: {
   region?: MediaRegion;
   clipWindow?: { startMs: number; endMs: number };
   label?: string;
-  /** Continuous loop only for loaders/skeletons — not every trimmed tile. */
+  /** Force loop even without a trim window (loaders). */
   loopTrim?: boolean;
 }) {
-  const [hover, setHover] = useState(false);
-  const loop = Boolean(props.loopTrim);
+  const hasTrim = props.clipWindow != null || props.atMs != null;
+  const loop = Boolean(props.loopTrim || hasTrim || props.videoUrl);
   return (
-    <div
-      className="size-full"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
+    <div className="size-full">
       <CaptureMedia
         posterUrl={props.posterUrl}
         videoUrl={props.videoUrl}
@@ -93,8 +89,8 @@ function HoverCapture(props: {
         region={props.region}
         clipWindow={props.clipWindow}
         label={props.label}
-        playOnHover
-        hovering={loop ? true : hover}
+        playOnHover={false}
+        hovering
         loop={loop}
       />
     </div>
@@ -117,7 +113,9 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
   const [tab, setTab] = useState<Tab>(
     tabParam === "flows" || tabParam === "ui" || tabParam === "screens"
       ? tabParam
-      : "screens",
+      : searchParams.get("screen")
+        ? "ui"
+        : "screens",
   );
   const [openGroup, setOpenGroup] = useState<string | null>(
     operator.flows[0]?.group ?? null,
@@ -291,11 +289,20 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
   }, [operator.uiElements]);
 
   const filteredUi = useMemo(() => {
+    const screenFocus = searchParams.get("screen")?.toLowerCase();
     return operator.uiElements.filter((el) => {
-      if (uiCategory === "All") return true;
-      return (el.category || "Cross") === uiCategory;
+      if (uiCategory !== "All" && (el.category || "Cross") !== uiCategory) {
+        return false;
+      }
+      if (!screenFocus) return true;
+      return (
+        el.parentScreen?.toLowerCase() === screenFocus ||
+        el.name.toLowerCase().includes(screenFocus) ||
+        (el.tags ?? []).some((t) => t.toLowerCase().includes(screenFocus)) ||
+        (el.searchText ?? "").toLowerCase().includes(screenFocus)
+      );
     });
-  }, [operator.uiElements, uiCategory]);
+  }, [operator.uiElements, uiCategory, searchParams]);
 
   const isMobile = operator.platform === "mobile";
 

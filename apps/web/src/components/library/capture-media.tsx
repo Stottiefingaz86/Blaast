@@ -45,11 +45,11 @@ export function CaptureMedia({
   const endMs =
     clipWindow?.endMs ?? (atMs != null ? atMs + 3000 : undefined);
 
-  const shouldPlay = Boolean(loop || (playOnHover && hovering));
-  // Only attach <video> when near viewport AND we need playback (or no poster)
-  const loadVideo = Boolean(
-    videoUrl && inView && (shouldPlay || loop || !posterUrl),
+  const shouldPlay = Boolean(
+    inView && (loop || (playOnHover && hovering) || (!playOnHover && hovering)),
   );
+  // Only attach <video> when near viewport — keeps 500-brand grids workable
+  const loadVideo = Boolean(videoUrl && inView && (shouldPlay || !posterUrl));
   const showPoster = Boolean(posterUrl && !posterFailed);
 
   useEffect(() => {

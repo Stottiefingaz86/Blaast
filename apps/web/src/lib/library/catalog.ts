@@ -45,6 +45,8 @@ export type CatalogUiElement = {
   tags?: string[];
   /** Search synonyms from tag catalog + LLM enrich */
   searchText?: string;
+  /** Parent screen chip (betslip, home, …) from curated tag taxonomy */
+  parentScreen?: string;
   /** Scuup-aligned journey */
   journey?: string;
   /** Sports / Casino / … */

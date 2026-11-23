@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pause } from "lucide-react";
 import type { CatalogOperator } from "@/lib/library/catalog";
 import { resolveFocusHero } from "@/lib/library/focus-media";
 import { MediaBusy } from "@/components/library/media-busy";
 import { cn } from "@/lib/utils";
 
-/** Poster by default; video only on hover when in view (keeps library snappy). */
+/** Autoplay + loop when in view; poster while buffering. Off-screen = no video load. */
 export function PreviewCard({
   operator,
   focusChip,
@@ -21,7 +20,6 @@ export function PreviewCard({
   const rootRef = useRef<HTMLAnchorElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [inView, setInView] = useState(false);
-  const [hover, setHover] = useState(false);
   const [ready, setReady] = useState(false);
   const hero = useMemo(
     () => resolveFocusHero(operator, focusChip),
@@ -32,14 +30,14 @@ export function PreviewCard({
     hero.clipWindow?.endMs != null
       ? hero.clipWindow.endMs / 1000
       : startSec + 4;
-  const playing = hover && inView && Boolean(hero.videoUrl);
+  const playing = inView && Boolean(hero.videoUrl);
 
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => setInView(entry.isIntersecting),
-      { root: null, rootMargin: "180px 0px", threshold: 0.01 },
+      { root: null, rootMargin: "120px 0px", threshold: 0.05 },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -72,13 +70,13 @@ export function PreviewCard({
     v.addEventListener("playing", onPlaying);
     void v.play().catch(() => undefined);
     const onTime = () => {
-      if (v.currentTime >= endSec) {
-        v.pause();
+      if (v.currentTime >= endSec - 0.04) {
         try {
           v.currentTime = startSec;
         } catch {
           /* ignore */
         }
+        void v.play().catch(() => undefined);
       }
     };
     v.addEventListener("timeupdate", onTime);
@@ -94,10 +92,12 @@ export function PreviewCard({
   return (
     <Link
       ref={rootRef}
-      href={`/operators/${operator.slug}`}
+      href={
+        focusChip
+          ? `/operators/${operator.slug}?tab=ui&screen=${encodeURIComponent(focusChip.toLowerCase())}`
+          : `/operators/${operator.slug}`
+      }
       className="group flex flex-col gap-3 outline-none"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
     >
       <div
         className={cn(
@@ -115,18 +115,12 @@ export function PreviewCard({
             {hero.label}
           </span>
         )}
-        {playing && ready && (
-          <span className="absolute top-4 right-4 z-10 flex size-7 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm">
-            <Pause className="size-3.5" fill="currentColor" strokeWidth={0} />
-          </span>
-        )}
         <div
           className={cn(
-            "relative mx-auto overflow-hidden bg-[#1a1a1a] transition-transform duration-500",
+            "relative mx-auto overflow-hidden bg-[#1a1a1a]",
             isMobile
               ? "aspect-[9/19] w-full max-w-[210px] rounded-[26px] shadow-[0_16px_48px_-20px_rgba(0,0,0,0.55)]"
               : "aspect-[16/10] w-full rounded-[18px] shadow-[0_16px_48px_-24px_rgba(0,0,0,0.5)]",
-            playing && ready && "scale-[1.015]",
           )}
         >
           {hero.posterUrl ? (
@@ -160,6 +154,8 @@ export function PreviewCard({
               src={hero.videoUrl}
               muted
               playsInline
+              autoPlay
+              loop={hero.clipWindow == null}
               preload="metadata"
               poster={hero.posterUrl}
               className={cn(
