@@ -228,7 +228,7 @@ export function Lander() {
       </section>
 
       <footer className="relative overflow-hidden bg-neutral-950 text-white">
-        <div className="relative z-10 mx-auto flex max-w-[1400px] flex-col gap-8 px-6 pt-16 pb-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
+        <div className="relative z-10 mx-auto flex max-w-[1400px] flex-col gap-8 px-6 pt-16 pb-6 sm:flex-row sm:items-center sm:justify-between sm:px-10">
           <p className="text-[13px] text-neutral-500">
             © Blaast {new Date().getFullYear()}
           </p>
@@ -254,11 +254,15 @@ export function Lander() {
             </Link>
           </div>
         </div>
+        {/* Full-viewport wordmark — edge to edge, clipped like Mobbin */}
         <div
           className="pointer-events-none relative z-0 w-full select-none overflow-hidden"
           aria-hidden
         >
-          <p className="w-full translate-y-[42%] text-center text-[28vw] leading-none font-semibold tracking-[-0.07em] text-white/[0.08] sm:text-[22vw] lg:text-[18vw]">
+          <p
+            className="relative left-1/2 w-screen max-w-none -translate-x-1/2 translate-y-[38%] text-center font-semibold leading-none tracking-[-0.08em] text-white/[0.09] whitespace-nowrap"
+            style={{ fontSize: "calc(100vw / 4.85)" }}
+          >
             Blaast
           </p>
         </div>
