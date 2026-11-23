@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { logoSrc, type OperatorLogo } from "@/lib/marketing/operator-logos";
+import {
+  logoCandidates,
+  type OperatorLogo,
+} from "@/lib/marketing/operator-logos";
 import { cn } from "@/lib/utils";
 
 /**
  * Operator mark for bubbles / marquee.
- * Local SVG tiles are full-bleed; remote icons use contain so they don't shrink.
- * On failure → brand-color lettermark (never a blank hole).
+ * Tries local → Brandfetch → Google favicon → lettermark (never a blank hole).
  */
 export function OperatorMark({
   op,
@@ -18,13 +20,15 @@ export function OperatorMark({
   className?: string;
   imgClassName?: string;
 }) {
-  const [failed, setFailed] = useState(false);
+  const candidates = logoCandidates(op, 256);
+  const [idx, setIdx] = useState(0);
   const letter =
     op.alt.replace(/[^a-zA-Z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
-  const isTile = Boolean(op.localSrc?.endsWith(".svg"));
+  const src = candidates[idx];
+  const isTile = Boolean(src?.startsWith("/operators/") && src.endsWith(".svg"));
 
   useEffect(() => {
-    setFailed(false);
+    setIdx(0);
   }, [op.id]);
 
   return (
@@ -35,7 +39,7 @@ export function OperatorMark({
         className,
       )}
     >
-      {failed ? (
+      {!src ? (
         <span
           className="flex size-full items-center justify-center font-bold text-white"
           style={{
@@ -48,19 +52,19 @@ export function OperatorMark({
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          key={op.id}
-          src={logoSrc(op, 256)}
+          key={`${op.id}-${idx}`}
+          src={src}
           alt=""
           width={128}
           height={128}
           className={cn(
             "relative z-[1]",
-            isTile
-              ? "size-full object-cover"
-              : "size-[82%] object-contain",
+            isTile ? "size-full object-cover" : "size-[82%] object-contain",
             imgClassName,
           )}
-          onError={() => setFailed(true)}
+          onError={() => {
+            setIdx((i) => (i + 1 < candidates.length ? i + 1 : candidates.length));
+          }}
         />
       )}
     </span>

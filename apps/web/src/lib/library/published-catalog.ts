@@ -146,8 +146,12 @@ function mediaUrls(rec: PublishedClipRecord, origin: string) {
       ? `&t=${Math.round(rec.clipWindow.startMs)}`
       : "";
   return {
-    posterUrl: `${base}?file=poster${bust}`,
-    videoUrl: `${base}?file=video`,
+    posterUrl: rec.posterUrl?.startsWith("http")
+      ? rec.posterUrl
+      : `${base}?file=poster${bust}`,
+    videoUrl: rec.videoUrl?.startsWith("http")
+      ? rec.videoUrl
+      : `${base}?file=video`,
   };
 }
 
@@ -188,7 +192,7 @@ export async function listLibraryMedia(
       kind,
       taxonomy: rec.taxonomy,
       tags: rec.tags,
-      hasVideo: Boolean(rec.videoPath),
+      hasVideo: Boolean(rec.videoPath || rec.videoUrl),
       ...media,
       clipWindow: rec.clipWindow,
       durationMs: rec.durationMs,

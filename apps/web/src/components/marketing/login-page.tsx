@@ -119,18 +119,14 @@ export function LoginPage() {
                 Continue with Google
               </a>
             ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  setError(
-                    "Google sign-in isn’t set up yet — use email below for now.",
-                  )
-                }
+              <a
+                href="/api/auth/google"
                 className={googleBtn}
+                title="Requires GOOGLE_CLIENT_ID — see docs/google-oauth.md"
               >
                 <GoogleMark className="size-[18px] shrink-0" />
                 Continue with Google
-              </button>
+              </a>
             )}
             <div className="flex items-center gap-3 py-0.5 text-[12px] text-[#8a8a8a]">
               <span className="h-px flex-1 bg-white/[0.12]" />

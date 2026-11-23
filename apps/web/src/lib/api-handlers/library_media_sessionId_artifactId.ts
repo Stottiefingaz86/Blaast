@@ -34,6 +34,14 @@ export async function GET(
     return NextResponse.json({ error: "Not published" }, { status: 404 });
   }
 
+  // Cloud storage redirect (Vercel has no local .data captures)
+  if (which === "video" && rec.videoUrl?.startsWith("http")) {
+    return NextResponse.redirect(rec.videoUrl, 302);
+  }
+  if (which === "poster" && !annId && rec.posterUrl?.startsWith("http")) {
+    return NextResponse.redirect(rec.posterUrl, 302);
+  }
+
   let rel =
     which === "video"
       ? rec.videoPath

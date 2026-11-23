@@ -34,13 +34,13 @@ export const OPERATOR_LOGOS: OperatorLogo[] = [
   { id: "22bet", domain: "22bet.com", alt: "22Bet", color: "#1565C0", verticals: ["Sportsbook", "Casino"], regions: ["Global"] },
   { id: "melbet", domain: "melbet.com", alt: "Melbet", color: "#0D47A1", verticals: ["Sportsbook", "Casino"], regions: ["Global"] },
   { id: "parimatch", domain: "parimatch.com", alt: "Parimatch", color: "#F9A825", verticals: ["Sportsbook", "Casino"], regions: ["Eastern Europe", "UK"] },
-  { id: "pinnacle", domain: "pinnacle.com", alt: "Pinnacle", color: "#C8102E", verticals: ["Sportsbook", "Esports"], regions: ["Global"] },
+  { id: "pinnacle", domain: "pinnacle.com", alt: "Pinnacle", color: "#C8102E", localSrc: "/operators/pinnacle.png", verticals: ["Sportsbook", "Esports"], regions: ["Global"] },
   { id: "marathonbet", domain: "marathonbet.com", alt: "Marathonbet", color: "#1A237E", verticals: ["Sportsbook", "Casino"], regions: ["Europe", "LATAM"] },
   { id: "sportingbet", domain: "sportingbet.com", alt: "Sportingbet", color: "#E65100", verticals: ["Sportsbook", "Casino"], regions: ["LATAM", "Europe"] },
-  { id: "pokerstars", domain: "pokerstars.com", alt: "PokerStars", color: "#E4002B", verticals: ["Poker", "Casino", "Sportsbook"], regions: ["Global"] },
-  { id: "leovegas", domain: "leovegas.com", alt: "LeoVegas", color: "#FF6B00", verticals: ["Casino", "Sportsbook"], regions: ["Europe", "UK"] },
-  { id: "casumo", domain: "casumo.com", alt: "Casumo", color: "#32007E", verticals: ["Casino", "Sportsbook"], regions: ["Europe", "UK"] },
-  { id: "mrgreen", domain: "mrgreen.com", alt: "Mr Green", color: "#05372C", verticals: ["Casino", "Sportsbook"], regions: ["Europe", "UK"] },
+  { id: "pokerstars", domain: "pokerstars.com", alt: "PokerStars", color: "#E4002B", localSrc: "/operators/fav-pokerstars.png", verticals: ["Poker", "Casino", "Sportsbook"], regions: ["Global"] },
+  { id: "leovegas", domain: "leovegas.com", alt: "LeoVegas", color: "#FF6B00", localSrc: "/operators/fav-leovegas.png", verticals: ["Casino", "Sportsbook"], regions: ["Europe", "UK"] },
+  { id: "casumo", domain: "casumo.com", alt: "Casumo", color: "#32007E", localSrc: "/operators/casumo.jpg", verticals: ["Casino", "Sportsbook"], regions: ["Europe", "UK"] },
+  { id: "mrgreen", domain: "mrgreen.com", alt: "Mr Green", color: "#05372C", localSrc: "/operators/mrgreen.png", verticals: ["Casino", "Sportsbook"], regions: ["Europe", "UK"] },
   { id: "videoslots", domain: "videoslots.com", alt: "VideoSlots", color: "#1A1A1A", localSrc: "/operators/videoslots.svg", verticals: ["Casino"], regions: ["Europe"] },
   { id: "mrq", domain: "mrq.com", alt: "MrQ", color: "#00BCD4", verticals: ["Casino"], regions: ["UK"] },
   { id: "playojo", domain: "playojo.com", alt: "PlayOJO", color: "#FF4081", verticals: ["Casino"], regions: ["UK", "Europe", "Canada"] },
@@ -63,8 +63,8 @@ export const OPERATOR_LOGOS: OperatorLogo[] = [
   { id: "32red", domain: "32red.com", alt: "32Red", color: "#C62828", verticals: ["Casino"], regions: ["UK", "Ireland"] },
   { id: "grosvenor", domain: "grosvenorcasinos.com", alt: "Grosvenor", color: "#4A148C", verticals: ["Casino", "Poker", "Sportsbook"], regions: ["UK"] },
   { id: "stake", domain: "stake.com", alt: "Stake", color: "#1475E1", localSrc: "/operators/stake.svg", verticals: ["Casino", "Sportsbook"], regions: ["Global", "US"] },
-  { id: "bcgame", domain: "bc.game", alt: "BC.GAME", color: "#00C853", verticals: ["Casino", "Sportsbook"], regions: ["Global"] },
-  { id: "roobet", domain: "roobet.com", alt: "Roobet", color: "#1B9E4B", verticals: ["Casino", "Sportsbook"], regions: ["Global", "LATAM"] },
+  { id: "bcgame", domain: "bc.game", alt: "BC.GAME", color: "#00C853", localSrc: "/operators/fav-bc.png", verticals: ["Casino", "Sportsbook"], regions: ["Global"] },
+  { id: "roobet", domain: "roobet.com", alt: "Roobet", color: "#1B9E4B", localSrc: "/operators/fav-roobet.png", verticals: ["Casino", "Sportsbook"], regions: ["Global", "LATAM"] },
   { id: "rollbit", domain: "rollbit.com", alt: "Rollbit", color: "#76FF03", verticals: ["Casino", "Sports"], regions: ["Global"] },
   { id: "bitcasino", domain: "bitcasino.io", alt: "Bitcasino", color: "#FFD600", verticals: ["Casino"], regions: ["Global"] },
   { id: "sportsbetio", domain: "sportsbet.io", alt: "Sportsbet.io", color: "#00E676", verticals: ["Sportsbook", "Casino"], regions: ["Global"] },
@@ -111,44 +111,80 @@ export const OPERATOR_LOGOS: OperatorLogo[] = [
   { id: "hollywoodbets", domain: "hollywoodbets.net", alt: "Hollywoodbets", color: "#D50000", verticals: ["Sportsbook", "Racing", "Casino"], regions: ["South Africa", "UK"] },
   { id: "caliente", domain: "caliente.mx", alt: "Caliente", color: "#E53935", localSrc: "/operators/caliente.svg", verticals: ["Sportsbook", "Casino"], regions: ["Mexico", "LATAM"] },
   { id: "betvictor", domain: "betvictor.com", alt: "BetVictor", color: "#E30613", localSrc: "/operators/betvictor.svg", verticals: ["Sportsbook", "Casino", "Racing"], regions: ["UK", "Europe"] },
-  { id: "winna", domain: "winna.com", alt: "Winna", color: "#00455D", verticals: ["Casino", "Sportsbook"], regions: ["Global"] },
+  { id: "winna", domain: "winna.com", alt: "Winna", color: "#00455D", localSrc: "/operators/winna.png", verticals: ["Casino", "Sportsbook"], regions: ["Global"] },
+  { id: "rainbet", domain: "rainbet.com", alt: "Rainbet", color: "#7C3AED", verticals: ["Casino", "Sportsbook"], regions: ["Global"] },
 ];
+
+/** Brandfetch Logo CDN client id (hotlink). */
+const BRANDFETCH_CLIENT = "1idQ7IGDkd8KcAbHDDk";
+
+function domainOf(op: OperatorLogo | string): string {
+  if (typeof op === "string") {
+    const raw = op.trim().toLowerCase();
+    try {
+      if (raw.includes("://")) return new URL(raw).hostname.replace(/^www\./, "");
+    } catch {
+      /* ignore */
+    }
+    return raw.replace(/^www\./, "").split("/")[0]!;
+  }
+  return op.domain;
+}
+
+/** Ordered candidates — local → Brandfetch icon → Google favicon. */
+export function logoCandidates(
+  op: OperatorLogo | string,
+  size = 256,
+): string[] {
+  const domain = domainOf(op);
+  const local =
+    typeof op !== "string" && op.localSrc ? [op.localSrc] : [];
+  return [
+    ...local,
+    `https://cdn.brandfetch.io/${domain}/w/${size}/h/${size}/theme/light/type/icon/fallback/lettermark?c=${BRANDFETCH_CLIENT}`,
+    `https://cdn.brandfetch.io/${domain}/w/${size}/h/${size}/theme/dark/type/icon/fallback/lettermark?c=${BRANDFETCH_CLIENT}`,
+    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${Math.min(size, 128)}`,
+  ];
+}
+
+/**
+ * Primary logo URL (first candidate). Prefer {@link logoCandidates} + fallback UI.
+ */
+export function logoSrc(op: OperatorLogo | string, size = 256) {
+  return logoCandidates(op, size)[0]!;
+}
+
+export function faviconUrl(domain: string, size = 128) {
+  return logoCandidates(domain, size)[0]!;
+}
 
 /** Rotating hero use-cases — full product surface, not “lobbies only”. */
 export type HeadlineFrame = {
   id: string;
   /** Words before first logo */
   lead: string;
-  /** Words between logo 1 and logo 2 */
   mid: string;
-  /** Words after logo 3 */
   trail: string;
 };
 
 export const HEADLINE_FRAMES: HeadlineFrame[] = [
   {
-    id: "chrome",
-    lead: "Every",
-    mid: "onboarding, home, and side nav",
-    trail: "search, tab bars, empty states.",
-  },
-  {
-    id: "casino",
-    lead: "Build",
-    mid: "casino lobbies with filters",
-    trail: "sorting, rails, and game grids.",
-  },
-  {
-    id: "vip",
+    id: "betslip",
     lead: "Ship",
-    mid: "VIP rewards and promotions",
-    trail: "side menus players actually use.",
+    mid: "betslips and builders",
+    trail: "that convert under pressure.",
   },
   {
-    id: "sports",
-    lead: "Match",
-    mid: "betslips, odds, and in-play",
-    trail: "cash-out trays and my-bets.",
+    id: "lobby",
+    lead: "Design",
+    mid: "casino lobbies",
+    trail: "players actually browse.",
+  },
+  {
+    id: "onboarding",
+    lead: "Nail",
+    mid: "onboarding and KYC",
+    trail: "without losing the deposit.",
   },
   {
     id: "cashier",
@@ -157,20 +193,6 @@ export const HEADLINE_FRAMES: HeadlineFrame[] = [
     trail: "limits, gates, and loaders.",
   },
 ];
-
-/** Brandfetch Logo CDN — browser hotlink (build_logo_urls). Prefer over favicons. */
-const BRANDFETCH_CLIENT = "1idQ7IGDkd8KcAbHDDk";
-
-/**
- * HQ square icon for bubbles / marquee.
- * Prefer Brandfetch icon@256 (lettermark fallback) — not Google 16px favicons.
- */
-export function logoSrc(op: OperatorLogo | string, size = 256) {
-  if (typeof op !== "string" && op.localSrc) return op.localSrc;
-  const domain = typeof op === "string" ? op : op.domain;
-  // Light theme for white bubbles; icon fills edge-to-edge (no brand tile behind).
-  return `https://cdn.brandfetch.io/${domain}/w/${size}/h/${size}/theme/light/fallback/lettermark?c=${BRANDFETCH_CLIENT}`;
-}
 
 const SCENARIO_TEMPLATES = [
   "Build our casino lobby like {name}",
@@ -232,53 +254,10 @@ export const SCENARIO_PROMPTS: string[] = (() => {
   ) as typeof OPERATOR_LOGOS;
   const out: string[] = [];
 
-  // Lead with the patterns users ask for most, on crisp brands
-  for (const tmpl of SCENARIO_TEMPLATES.slice(0, 4)) {
-    for (const op of featured.slice(0, 6)) {
-      out.push(tmpl.replace("{name}", op.alt));
-    }
-  }
-
-  const pool = OPERATOR_LOGOS;
   for (let i = 0; i < SCENARIO_TEMPLATES.length; i++) {
-    for (let j = 0; j < 3; j++) {
-      const op = pool[(i * 3 + j * 17) % pool.length]!;
-      out.push(SCENARIO_TEMPLATES[i]!.replace("{name}", op.alt));
-    }
+    const tmpl = SCENARIO_TEMPLATES[i]!;
+    const op = featured[i % featured.length]!;
+    out.push(tmpl.replace("{name}", op.alt));
   }
-  return [...new Set(out)];
-})();
-
-/** Headline rotation pool — prefer crisp local logos when available. */
-export const HEADLINE_LOGOS: OperatorLogo[] = (() => {
-  const prefer = [
-    "caesars",
-    "winna",
-    "stake",
-    "casumo",
-    "mrgreen",
-    "pinnacle",
-    "betfair",
-    "leovegas",
-    "pokerstars",
-    "fanduel",
-    "draftkings",
-    "bet365",
-    "betmgm",
-    "roobet",
-    "bcgame",
-    "unibet",
-    "hardrock",
-    "winamax",
-    "betvictor",
-    "pointsbet",
-    "paddypower",
-    "skybet",
-    "tipico",
-    "caliente",
-  ];
-  const byId = new Map(OPERATOR_LOGOS.map((o) => [o.id, o]));
-  const picked = prefer.map((id) => byId.get(id)).filter(Boolean) as OperatorLogo[];
-  const rest = OPERATOR_LOGOS.filter((o) => o.localSrc && !prefer.includes(o.id));
-  return [...picked, ...rest];
+  return out;
 })();

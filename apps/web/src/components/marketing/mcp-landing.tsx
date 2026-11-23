@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { MarketingNav } from "@/components/marketing/site-nav";
 import { AiChatInput } from "@/components/marketing/ai-chat-input";
 import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/library/session";
 import { cn } from "@/lib/utils";
 
 const TOOLS = [
@@ -18,16 +19,36 @@ const TOOLS = [
     desc: "Query ordered journeys — deposit, betslip, onboarding, cash out.",
   },
   {
+    name: "search_ui",
+    desc: "Search UI elements (odds button, side nav, loader, skeleton…).",
+  },
+  {
+    name: "get_motion",
+    desc: "Find loaders / skeletons with measured motion + clip URLs.",
+  },
+  {
+    name: "get_evidence",
+    desc: "Full evidence pack: regions, tags, media, replicate prompt.",
+  },
+  {
     name: "get_flow",
-    desc: "Load a full flow with ordered steps and an agent replicate prompt.",
+    desc: "Load a full flow with ordered steps and an agent prompt.",
   },
   {
     name: "get_operator",
     desc: "Operator profile: screens, UI elements, and flow groups.",
   },
   {
-    name: "list_collections",
-    desc: "List saved collections in the workspace.",
+    name: "list_patterns",
+    desc: "Browse aggregated UX patterns across operators.",
+  },
+  {
+    name: "most_used_pattern",
+    desc: "Most-used pattern for a journey or UI kind.",
+  },
+  {
+    name: "compare_operators",
+    desc: "Compare two operators on a journey or surface.",
   },
 ];
 
@@ -41,16 +62,27 @@ const CLIENTS = [
 ];
 
 /**
- * Full-bleed MCP page — Save.design / Mobbin pattern:
- * One URL · 3 steps · client grid · tools.
+ * Full-bleed MCP page — real endpoint, Cursor config, connect status.
  */
 export function McpLanding() {
   const [copied, setCopied] = useState<"url" | "config" | null>(null);
-  const [endpoint, setEndpoint] = useState("http://localhost:3000/api/mcp");
+  const [endpoint, setEndpoint] = useState("https://blaast-five.vercel.app/api/mcp");
+  const [health, setHealth] = useState<"checking" | "ok" | "err">("checking");
+  const [toolCount, setToolCount] = useState(0);
   const router = useRouter();
+  const { loggedIn, user } = useSession();
 
   useEffect(() => {
-    setEndpoint(`${window.location.origin}/api/mcp`);
+    const url = `${window.location.origin}/api/mcp`;
+    setEndpoint(url);
+    void fetch(url)
+      .then(async (r) => {
+        if (!r.ok) throw new Error("bad");
+        const data = (await r.json()) as { tools?: string[] };
+        setToolCount(data.tools?.length ?? 0);
+        setHealth("ok");
+      })
+      .catch(() => setHealth("err"));
   }, []);
 
   const config = `{
@@ -67,20 +99,44 @@ export function McpLanding() {
     window.setTimeout(() => setCopied(null), 2000);
   }
 
+  const planLabel = user?.plan ?? "guest";
+  const canUseMcp =
+    !loggedIn ||
+    user?.plan === "pro" ||
+    user?.plan === "team" ||
+    user?.plan === "enterprise" ||
+    user?.role === "owner" ||
+    user?.role === "admin";
+
   return (
     <div className="min-h-screen bg-white text-neutral-950">
       <MarketingNav solid />
 
       <section className="mx-auto grid max-w-[1100px] gap-12 px-6 pt-16 pb-20 lg:grid-cols-2 lg:gap-16 lg:pt-24">
         <div className="animate-fade-up">
+          <p className="mb-3 text-[12px] font-semibold tracking-wide text-emerald-700 uppercase">
+            {health === "ok"
+              ? `Live · ${toolCount} tools`
+              : health === "checking"
+                ? "Checking endpoint…"
+                : "Endpoint unreachable"}
+          </p>
           <h1 className="text-[2.5rem] leading-[1.08] font-semibold tracking-tight sm:text-[3.25rem]">
             One URL.
             <br />
             Any MCP client.
           </h1>
           <p className="mt-5 max-w-md text-[16px] leading-relaxed text-neutral-500">
-            MCP is an open protocol — if your agent speaks it, it can search
-            Blaast screens and flows. No per-tool integrations.
+            Paste the Streamable HTTP endpoint into Cursor (or Claude / ChatGPT).
+            Agents call{" "}
+            <code className="rounded bg-neutral-100 px-1 text-[13px]">
+              search_screens
+            </code>
+            ,{" "}
+            <code className="rounded bg-neutral-100 px-1 text-[13px]">
+              get_flow
+            </code>
+            , and more against your approved library.
           </p>
 
           <ol className="mt-10 space-y-6">
@@ -88,17 +144,17 @@ export function McpLanding() {
               {
                 n: "01",
                 t: "Copy the server URL",
-                d: "One Streamable HTTP endpoint for your workspace.",
+                d: "Works against this deployment — localhost or blaast-five.vercel.app.",
               },
               {
                 n: "02",
-                t: "Add it in your AI tool",
-                d: "Paste as a custom MCP server. Cursor takes a one-line config.",
+                t: "Add it in Cursor Settings → MCP",
+                d: "New server → paste the JSON config below (or the URL alone).",
               },
               {
                 n: "03",
-                t: "Search operator UX",
-                d: "Ask for betslips, deposits, onboarding — get screens, flows, prompts.",
+                t: "Ask for operator UX",
+                d: "“Show Stake deposit loaders” — get screens, clips, and replicate prompts.",
               },
             ].map((s) => (
               <li key={s.n} className="flex gap-4">
@@ -136,17 +192,23 @@ export function McpLanding() {
                 {copied === "url" ? "Copied" : "Copy"}
               </button>
             </div>
-            <p className="mt-2 text-[12px] text-neutral-400">
-              Demo is open locally. OAuth for Pro+ comes next — same shape as{" "}
-              <a
-                href="https://mobbin.com/mcp"
-                className="underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-600"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Mobbin MCP
-              </a>
-              .
+            <p className="mt-2 text-[12px] leading-relaxed text-neutral-400">
+              {canUseMcp ? (
+                <>
+                  Ready to connect
+                  {loggedIn ? ` (plan: ${planLabel})` : " (no login required for agents)"}.
+                  Free browser sessions that are logged-in get an upgrade message —
+                  use Pro or connect from Cursor without a Blaast cookie.
+                </>
+              ) : (
+                <>
+                  You’re on Free —{" "}
+                  <Link href="/settings/billing" className="underline">
+                    upgrade to Pro
+                  </Link>{" "}
+                  for MCP from a logged-in browser, or connect Cursor without cookies.
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -174,11 +236,19 @@ export function McpLanding() {
                 Show me how top operators design deposits that feel worth it
               </div>
             </div>
-            <p className="mb-3 text-[12px] text-neutral-500">Found 5 flows</p>
+            <p className="mb-3 text-[12px] text-neutral-500">
+              Try in library after connect
+            </p>
             <AiChatInput
               className="border-white/10 bg-white/[0.06] shadow-none [&_textarea]:text-white [&_textarea]:placeholder:text-neutral-500"
               placeholder="Ask Blaast MCP…"
-              onSend={() => router.push("/login")}
+              onSend={(q) =>
+                router.push(
+                  loggedIn
+                    ? `/library?brief=${encodeURIComponent(q)}`
+                    : `/login?brief=${encodeURIComponent(q)}`,
+                )
+              }
             />
           </div>
         </div>
@@ -215,10 +285,10 @@ export function McpLanding() {
               {copied === "config" ? "Copied Cursor config" : "Copy Cursor config"}
             </button>
             <Link
-              href="/login"
+              href="/library"
               className="text-[14px] font-medium text-neutral-600 underline decoration-neutral-300 underline-offset-4 hover:text-neutral-950 hover:decoration-neutral-900"
             >
-              Log in to open the library →
+              Open the library →
             </Link>
           </div>
 
@@ -235,7 +305,7 @@ export function McpLanding() {
       <footer className="bg-neutral-950 px-6 py-10 text-[12px] text-neutral-500">
         <div className="mx-auto flex max-w-[1100px] items-center justify-between">
           <span className="text-[14px] font-semibold text-white">Blaast</span>
-          <span>MCP · Streamable HTTP</span>
+          <span>MCP · Streamable HTTP · {endpoint.replace(/^https?:\/\//, "")}</span>
         </div>
       </footer>
     </div>

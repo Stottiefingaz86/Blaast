@@ -9,10 +9,10 @@ import {
 import { createPortal } from "react-dom";
 import { MEGA } from "@/lib/library/taxonomy-nav";
 import {
-  faviconUrl,
   previewsForLabel,
   type MegaPreview,
 } from "@/lib/library/mega-previews";
+import { logoCandidates } from "@/lib/marketing/operator-logos";
 import { cn } from "@/lib/utils";
 
 const columns = [
@@ -180,6 +180,29 @@ function GlideColumn({
   );
 }
 
+function MegaFavicon({ domain, size }: { domain: string; size: number }) {
+  const candidates = logoCandidates(domain, 128);
+  const [idx, setIdx] = useState(0);
+  const src = candidates[idx];
+  if (!src) {
+    return <div className="size-full bg-neutral-100" />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key={`${domain}-${idx}`}
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      className="size-full object-contain p-3"
+      onError={() =>
+        setIdx((i) => (i + 1 < candidates.length ? i + 1 : candidates.length))
+      }
+    />
+  );
+}
+
 function MegaHoverPreview({
   hover,
   index,
@@ -212,15 +235,7 @@ function MegaHoverPreview({
         )}
         style={{ width: size, height: size }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          key={preview.domain}
-          src={faviconUrl(preview.domain, 128)}
-          alt=""
-          width={size}
-          height={size}
-          className="size-full object-contain p-3"
-        />
+        <MegaFavicon domain={preview.domain} size={size} />
       </div>
       <p className="mt-2 text-center text-[11px] font-medium text-white/80 drop-shadow">
         {preview.name}

@@ -24,6 +24,9 @@ export type PublishedClipRecord = {
   videoPath?: string;
   posterPath?: string;
   structurePath?: string;
+  /** Public Supabase Storage URLs when uploaded */
+  videoUrl?: string;
+  posterUrl?: string;
   /** Library playback window — hide junk outside this range */
   clipWindow?: { startMs: number; endMs: number };
   reviewStatus: "approved";
@@ -46,6 +49,37 @@ async function readPublished(): Promise<PublishedClipRecord[]> {
 async function writePublished(rows: PublishedClipRecord[]) {
   await fs.mkdir(dataDir(), { recursive: true });
   await fs.writeFile(publishPath(), JSON.stringify(rows, null, 2), "utf8");
+  await uploadPublishedIndex(rows);
+}
+
+/** Durable catalog for Vercel when Postgres table isn’t applied yet. */
+async function uploadPublishedIndex(rows: PublishedClipRecord[]) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) return;
+  const body = JSON.stringify(rows);
+  const res = await fetch(
+    `${url}/storage/v1/object/blaast-captures/published-index.json`,
+    {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        "x-upsert": "true",
+      },
+      body,
+    },
+  );
+  if (!res.ok) {
+    console.error(
+      "[published-index upload]",
+      res.status,
+      (await res.text()).slice(0, 200),
+    );
+  }
 }
 
 function buildRecord(
@@ -110,6 +144,20 @@ export async function publishApprovedArtifact(
 
   const record = buildRecord(session, art, operator);
 
+  try {
+    const { uploadPublishedMedia } = await import("@/lib/storage/captures");
+    const urls = await uploadPublishedMedia({
+      sessionId: session.id,
+      artifactId: art.id,
+      videoPath: art.videoPath,
+      posterPath: art.posterPath,
+    });
+    if (urls.videoUrl) record.videoUrl = urls.videoUrl;
+    if (urls.posterUrl) record.posterUrl = urls.posterUrl;
+  } catch (err) {
+    console.error("[publishApprovedArtifact] storage upload", err);
+  }
+
   const rows = await readPublished();
   const next = [
     ...rows.filter((r) => r.artifactId !== art.id),
@@ -131,7 +179,7 @@ export async function publishApprovedArtifact(
 }
 
 export async function listPublishedClips() {
-  return readPublished();
+  return listPublishedClipsMerged();
 }
 
 /** Persist annotation posterPath / enrich fields back into published JSON. */
@@ -178,10 +226,9 @@ async function maybePublishToSupabase(record: PublishedClipRecord) {
       page_url: record.pageUrl ?? null,
       platform: record.platform,
       market: record.market ?? null,
-      video_path: record.videoPath ?? null,
-      poster_path: record.posterPath ?? null,
+      video_path: record.videoUrl ?? record.videoPath ?? null,
+      poster_path: record.posterUrl ?? record.posterPath ?? null,
       structure_path: record.structurePath ?? null,
-      clip_window: record.clipWindow ?? null,
       evidence_id: record.evidenceId,
       published_at: record.publishedAt,
     }),
@@ -191,4 +238,82 @@ async function maybePublishToSupabase(record: PublishedClipRecord) {
     const text = await res.text();
     console.error("[supabase publish]", res.status, text);
   }
+}
+
+/** Prefer cloud catalog when local JSON is empty (Vercel). */
+export async function listPublishedClipsMerged(): Promise<PublishedClipRecord[]> {
+  const local = await readPublished();
+  if (local.length) return local;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) return local;
+
+  // 1) Storage JSON index (works without SQL migration)
+  try {
+    const idxRes = await fetch(
+      `${url}/storage/v1/object/public/blaast-captures/published-index.json`,
+      { next: { revalidate: 30 } },
+    );
+    if (idxRes.ok) {
+      const rows = (await idxRes.json()) as PublishedClipRecord[];
+      if (Array.isArray(rows) && rows.length) return rows;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  // 2) Postgres table when migration applied
+  const res = await fetch(
+    `${url}/rest/v1/blaast_published_clips?select=*&order=published_at.desc`,
+    {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+      next: { revalidate: 30 },
+    },
+  );
+  if (!res.ok) return local;
+  const rows = (await res.json()) as Array<Record<string, unknown>>;
+  if (!Array.isArray(rows) || !rows.length) return local;
+
+  return rows.map((r) => {
+    const videoPath = String(r.video_path ?? "");
+    const posterPath = String(r.poster_path ?? "");
+    return {
+      id: String(r.id),
+      sessionId: String(r.session_id),
+      artifactId: String(r.artifact_id),
+      operatorId: String(r.operator_id),
+      operatorHostname: String(r.operator_hostname),
+      operatorName: String(r.operator_name),
+      coverageStepId: String(r.coverage_step_id),
+      instruction: String(r.instruction),
+      taxonomy: String(r.taxonomy),
+      tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+      annotations: Array.isArray(r.annotations)
+        ? (r.annotations as PublishedClipRecord["annotations"])
+        : [],
+      durationMs:
+        typeof r.duration_ms === "number" ? r.duration_ms : undefined,
+      pageUrl: r.page_url ? String(r.page_url) : undefined,
+      platform: String(r.platform ?? "desktop_web"),
+      market: r.market ? String(r.market) : undefined,
+      videoPath: videoPath.startsWith("http") ? undefined : videoPath || undefined,
+      posterPath: posterPath.startsWith("http")
+        ? undefined
+        : posterPath || undefined,
+      videoUrl: videoPath.startsWith("http") ? videoPath : undefined,
+      posterUrl: posterPath.startsWith("http") ? posterPath : undefined,
+      structurePath: r.structure_path
+        ? String(r.structure_path)
+        : undefined,
+      reviewStatus: "approved" as const,
+      publishedAt: String(r.published_at ?? new Date().toISOString()),
+      evidenceId: String(r.evidence_id ?? r.id),
+    };
+  });
 }

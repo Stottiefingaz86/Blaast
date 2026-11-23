@@ -1,7 +1,8 @@
 /**
- * Hover preview sources for mega-browse — operator favicons per taxonomy label.
- * Favicons via Google s2 (swap to Brandfetch/CDN when rights cleared).
+ * Hover preview sources for mega-browse — real operator logos per taxonomy.
  */
+
+import { logoCandidates } from "@/lib/marketing/operator-logos";
 
 export type MegaPreview = {
   name: string;
@@ -11,7 +12,7 @@ export type MegaPreview = {
 };
 
 export function faviconUrl(domain: string, size = 128) {
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
+  return logoCandidates(domain, size)[0]!;
 }
 
 const sportsbook: MegaPreview[] = [
