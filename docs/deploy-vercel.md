@@ -26,4 +26,6 @@ cd apps/web && vercel --prod --yes
 
 ## Git
 
-Folder was not a git repo until `git init`. Push your new remote, then in Vercel → Project → Settings → Git → connect the repo (Root Directory `apps/web`).
+- Remote: https://github.com/Stottiefingaz86/Blaast
+- Vercel Git connected; **Root Directory** = `apps/web`
+- Push to `main` triggers production builds
