@@ -17,14 +17,14 @@ export const OPERATOR_LOGOS: OperatorLogo[] = [
   { id: "fanduel", domain: "fanduel.com", alt: "FanDuel", color: "#1493FF", verticals: ["Sportsbook", "Casino", "DFS"], regions: ["US", "Canada"] },
   { id: "draftkings", domain: "draftkings.com", alt: "DraftKings", color: "#61B5E3", verticals: ["Sportsbook", "Casino", "DFS"], regions: ["US", "Canada"] },
   { id: "betmgm", domain: "betmgm.com", alt: "BetMGM", color: "#C4A35A", verticals: ["Sportsbook", "Casino", "Poker"], regions: ["US", "UK", "Europe"] },
-  { id: "bwin", domain: "bwin.com", alt: "bwin", color: "#FF6600", verticals: ["Sportsbook", "Casino", "Poker"], regions: ["Europe"] },
+  { id: "bwin", domain: "bwin.com", alt: "bwin", color: "#FFCC00", localSrc: "/operators/fav-bwin.png", verticals: ["Sportsbook", "Casino", "Poker"], regions: ["Europe"] },
   { id: "betfair", domain: "betfair.com", alt: "Betfair", color: "#FFB80C", localSrc: "/operators/betfair.svg", verticals: ["Exchange", "Sportsbook"], regions: ["UK", "Europe", "LATAM"] },
   { id: "williamhill", domain: "williamhill.com", alt: "William Hill", color: "#003087", verticals: ["Sportsbook", "Casino"], regions: ["UK", "Europe"] },
   { id: "unibet", domain: "unibet.com", alt: "Unibet", color: "#14933B", verticals: ["Sportsbook", "Casino", "Poker"], regions: ["Europe", "UK"] },
   { id: "888", domain: "888.com", alt: "888", color: "#E31837", verticals: ["Casino", "Poker", "Sportsbook"], regions: ["UK", "Europe", "Canada"] },
   { id: "betano", domain: "betano.com", alt: "Betano", color: "#00A651", verticals: ["Sportsbook", "Casino"], regions: ["Europe", "LATAM"] },
   { id: "paddypower", domain: "paddypower.com", alt: "Paddy Power", color: "#004B23", verticals: ["Sportsbook", "Casino"], regions: ["UK", "Ireland"] },
-  { id: "ladbrokes", domain: "ladbrokes.com", alt: "Ladbrokes", color: "#E30613", verticals: ["Sportsbook", "Casino"], regions: ["UK", "Ireland", "AU"] },
+  { id: "ladbrokes", domain: "ladbrokes.com", alt: "Ladbrokes", color: "#E30613", localSrc: "/operators/fav-ladbrokes.png", verticals: ["Sportsbook", "Casino"], regions: ["UK", "Ireland", "AU"] },
   { id: "coral", domain: "coral.co.uk", alt: "Coral", color: "#E30613", verticals: ["Sportsbook", "Casino"], regions: ["UK"] },
   { id: "skybet", domain: "skybet.com", alt: "Sky Bet", color: "#FFFFFF", localSrc: "/operators/skybet.svg", verticals: ["Sportsbook", "Casino"], regions: ["UK", "Ireland"] },
   { id: "betsson", domain: "betsson.com", alt: "Betsson", color: "#FFCC00", verticals: ["Sportsbook", "Casino"], regions: ["Europe", "LATAM"] },
@@ -62,7 +62,7 @@ export const OPERATOR_LOGOS: OperatorLogo[] = [
   { id: "karamba", domain: "karamba.com", alt: "Karamba", color: "#FF9800", verticals: ["Casino", "Sportsbook"], regions: ["UK", "Europe"] },
   { id: "32red", domain: "32red.com", alt: "32Red", color: "#C62828", verticals: ["Casino"], regions: ["UK", "Ireland"] },
   { id: "grosvenor", domain: "grosvenorcasinos.com", alt: "Grosvenor", color: "#4A148C", verticals: ["Casino", "Poker", "Sportsbook"], regions: ["UK"] },
-  { id: "stake", domain: "stake.com", alt: "Stake", color: "#1475E1", localSrc: "/operators/stake.svg", verticals: ["Casino", "Sportsbook"], regions: ["Global", "US"] },
+  { id: "stake", domain: "stake.com", alt: "Stake", color: "#1475E1", localSrc: "/operators/fav-stake.png", verticals: ["Casino", "Sportsbook"], regions: ["Global", "US"] },
   { id: "bcgame", domain: "bc.game", alt: "BC.GAME", color: "#00C853", localSrc: "/operators/fav-bc.png", verticals: ["Casino", "Sportsbook"], regions: ["Global"] },
   { id: "roobet", domain: "roobet.com", alt: "Roobet", color: "#1B9E4B", localSrc: "/operators/fav-roobet.png", verticals: ["Casino", "Sportsbook"], regions: ["Global", "LATAM"] },
   { id: "rollbit", domain: "rollbit.com", alt: "Rollbit", color: "#76FF03", verticals: ["Casino", "Sports"], regions: ["Global"] },
@@ -91,16 +91,16 @@ export const OPERATOR_LOGOS: OperatorLogo[] = [
   { id: "codere", domain: "codere.es", alt: "Codere", color: "#E53935", verticals: ["Sportsbook", "Casino"], regions: ["Spain", "LATAM"] },
   { id: "sportium", domain: "sportium.es", alt: "Sportium", color: "#1565C0", verticals: ["Sportsbook", "Casino"], regions: ["Spain", "LATAM"] },
   { id: "luckia", domain: "luckia.es", alt: "Luckia", color: "#43A047", verticals: ["Sportsbook", "Casino"], regions: ["Spain", "LATAM"] },
-  { id: "sisal", domain: "sisal.it", alt: "Sisal", color: "#2E7D32", verticals: ["Lottery", "Sportsbook", "Casino"], regions: ["Italy"] },
+  { id: "sisal", domain: "sisal.it", alt: "Sisal", color: "#2E7D32", localSrc: "/operators/fav-sisal.png", verticals: ["Lottery", "Sportsbook", "Casino"], regions: ["Italy"] },
   { id: "snai", domain: "snai.it", alt: "Snai", color: "#C62828", verticals: ["Sportsbook", "Casino", "Racing"], regions: ["Italy"] },
   { id: "lottomatica", domain: "lottomatica.it", alt: "Lottomatica", color: "#1565C0", verticals: ["Lottery", "Sportsbook", "Casino"], regions: ["Italy"] },
   { id: "winamax", domain: "winamax.fr", alt: "Winamax", color: "#0D47A1", verticals: ["Poker", "Sportsbook"], regions: ["France", "Spain", "Germany"] },
   { id: "fdj", domain: "fdj.fr", alt: "FDJ", color: "#1A237E", verticals: ["Lottery", "Sportsbook", "Poker"], regions: ["France"] },
-  { id: "pmu", domain: "pmu.fr", alt: "PMU", color: "#2E7D32", verticals: ["Racing", "Sportsbook", "Poker"], regions: ["France"] },
+  { id: "pmu", domain: "pmu.fr", alt: "PMU", color: "#00695C", localSrc: "/operators/fav-pmu.png", verticals: ["Racing", "Sportsbook", "Poker"], regions: ["France"] },
   { id: "tipico", domain: "tipico.de", alt: "Tipico", color: "#E65100", verticals: ["Sportsbook", "Casino"], regions: ["Germany", "Austria"] },
   { id: "toto", domain: "toto.nl", alt: "TOTO", color: "#F9A825", verticals: ["Sportsbook", "Casino"], regions: ["Netherlands"] },
   { id: "hollandcasino", domain: "hollandcasino.nl", alt: "Holland Casino", color: "#B71C1C", verticals: ["Casino", "Poker", "Sportsbook"], regions: ["Netherlands"] },
-  { id: "atg", domain: "atg.se", alt: "ATG", color: "#00695C", verticals: ["Racing", "Sportsbook", "Casino"], regions: ["Sweden"] },
+  { id: "atg", domain: "atg.se", alt: "ATG", color: "#024F9E", localSrc: "/operators/fav-atg.png", verticals: ["Racing", "Sportsbook", "Casino"], regions: ["Sweden"] },
   { id: "svenskaspel", domain: "svenskaspel.se", alt: "Svenska Spel", color: "#1565C0", verticals: ["Lottery", "Sportsbook", "Casino"], regions: ["Sweden"] },
   { id: "norsktipping", domain: "norsk-tipping.no", alt: "Norsk Tipping", color: "#C62828", verticals: ["Lottery", "Sportsbook", "Casino"], regions: ["Norway"] },
   { id: "veikkaus", domain: "veikkaus.fi", alt: "Veikkaus", color: "#1B5E20", verticals: ["Lottery", "Sportsbook", "Casino"], regions: ["Finland"] },
@@ -118,6 +118,10 @@ export const OPERATOR_LOGOS: OperatorLogo[] = [
 /** Brandfetch Logo CDN client id (hotlink). */
 const BRANDFETCH_CLIENT = "1idQ7IGDkd8KcAbHDDk";
 
+const OPERATOR_BY_DOMAIN = new Map(
+  OPERATOR_LOGOS.map((o) => [o.domain.toLowerCase(), o]),
+);
+
 function domainOf(op: OperatorLogo | string): string {
   if (typeof op === "string") {
     const raw = op.trim().toLowerCase();
@@ -131,19 +135,42 @@ function domainOf(op: OperatorLogo | string): string {
   return op.domain;
 }
 
-/** Ordered candidates — local → Brandfetch icon → Google favicon. */
+function resolveOperator(op: OperatorLogo | string): OperatorLogo | undefined {
+  if (typeof op !== "string") return op;
+  const domain = domainOf(op);
+  return (
+    OPERATOR_BY_DOMAIN.get(domain) ??
+    OPERATOR_LOGOS.find(
+      (o) => domain === o.domain || domain.endsWith(`.${o.domain}`),
+    )
+  );
+}
+
+/**
+ * Ordered candidates — bundled favicon first, then explicit local, Google,
+ * Brandfetch icon with 404 fallback (never lettermark — those look “missing”).
+ */
 export function logoCandidates(
   op: OperatorLogo | string,
   size = 256,
 ): string[] {
-  const domain = domainOf(op);
-  const local =
-    typeof op !== "string" && op.localSrc ? [op.localSrc] : [];
+  const resolved = resolveOperator(op);
+  const domain = resolved?.domain ?? domainOf(op);
+  const favSz = Math.min(Math.max(size, 64), 128);
+  const locals: string[] = [];
+  // Bundled Google/Brandfetch favicons beat CDN lettermarks
+  if (resolved?.id) {
+    locals.push(`/operators/fav-${resolved.id}.png`);
+  }
+  if (resolved?.localSrc && !locals.includes(resolved.localSrc)) {
+    locals.push(resolved.localSrc);
+  }
   return [
-    ...local,
-    `https://cdn.brandfetch.io/${domain}/w/${size}/h/${size}/theme/light/type/icon/fallback/lettermark?c=${BRANDFETCH_CLIENT}`,
-    `https://cdn.brandfetch.io/${domain}/w/${size}/h/${size}/theme/dark/type/icon/fallback/lettermark?c=${BRANDFETCH_CLIENT}`,
-    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${Math.min(size, 128)}`,
+    ...locals,
+    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${favSz}`,
+    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    `https://cdn.brandfetch.io/${domain}/w/${size}/h/${size}/theme/light/type/icon/fallback/404?c=${BRANDFETCH_CLIENT}`,
+    `https://cdn.brandfetch.io/${domain}/w/${size}/h/${size}/theme/dark/type/icon/fallback/404?c=${BRANDFETCH_CLIENT}`,
   ];
 }
 

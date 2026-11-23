@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Operator mark for bubbles / marquee.
- * Tries local → Brandfetch → Google favicon → lettermark (never a blank hole).
+ * Tries bundled fav → Google/DDG → Brandfetch (404) → color lettermark.
  */
 export function OperatorMark({
   op,
