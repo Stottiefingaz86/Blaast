@@ -3,15 +3,14 @@
 ## Project
 
 - Vercel project: `chris-projects-e99bc8f6/blaast`
+- **Production:** https://blaast-five.vercel.app
 - Root directory: `apps/web`
 - Env vars (Production / Preview / Development):  
   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `BLAAST_AUTH_SECRET`
 
-## Blocker (Hobby)
+## Hobby limit (resolved)
 
-A full App Router build creates **more than 12 serverless functions** (API routes + dynamic admin pages). Hobby plan max is **12**.
-
-**Fix:** upgrade the Vercel team to **Pro**, then:
+All `/api/*` handlers are consolidated into one serverless function: `src/app/api/[[...path]]/route.ts` (rebuild with `node scripts/build-api-gateway.mjs`). That keeps the deploy under Hobby’s 12-function cap.
 
 ```bash
 cd apps/web && vercel --prod --yes
