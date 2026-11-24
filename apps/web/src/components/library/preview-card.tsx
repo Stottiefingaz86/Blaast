@@ -95,7 +95,19 @@ export function PreviewCard({
       ref={rootRef}
       href={
         focusChip
-          ? `/operators/${operator.slug}?tab=ui&screen=${encodeURIComponent(focusChip.toLowerCase())}`
+          ? (() => {
+              const chip = focusChip.toLowerCase();
+              // Category packs open Screens filtered to that vertical
+              if (
+                chip === "sportsbook" ||
+                chip === "sports" ||
+                chip === "casino" ||
+                chip === "casino & poker"
+              ) {
+                return `/operators/${operator.slug}?tab=screens&pack=${encodeURIComponent(chip)}`;
+              }
+              return `/operators/${operator.slug}?tab=ui&screen=${encodeURIComponent(chip)}`;
+            })()
           : `/operators/${operator.slug}`
       }
       className="group flex flex-col gap-3 outline-none"

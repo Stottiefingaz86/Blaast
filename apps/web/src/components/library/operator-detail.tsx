@@ -33,7 +33,6 @@ import type {
   CatalogEmail,
   CatalogFlow,
   CatalogOperator,
-  CatalogScreen,
   CatalogUiElement,
   MediaRegion,
 } from "@/lib/library/catalog";
@@ -168,7 +167,9 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
   const [uiCategory, setUiCategory] = useState<string>("All");
   const [flowCarousel, setFlowCarousel] = useState<CatalogFlow | null>(null);
   const [flowStepId, setFlowStepId] = useState<string | undefined>();
-  const [screenOpen, setScreenOpen] = useState<CatalogScreen | null>(null);
+  const [promptSurface, setPromptSurface] = useState<"Screen" | "UI element">(
+    "UI element",
+  );
   const [emailOpen, setEmailOpen] = useState<CatalogEmail | null>(null);
   const tabsSentinelRef = useRef<HTMLDivElement>(null);
   const brandEmails = operator.emails ?? [];
@@ -233,7 +234,31 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
   );
 
   const sortedScreens = useMemo(() => {
-    const list = [...operator.screens];
+    const pack = searchParams.get("pack")?.toLowerCase() ?? "";
+    let list = [...operator.screens];
+    if (pack === "sportsbook" || pack === "sports") {
+      list = list.filter((s) => {
+        const hay = `${s.title} ${s.category ?? ""} ${s.journey ?? ""} ${(s.tags ?? []).join(" ")} ${s.kind}`.toLowerCase();
+        return (
+          s.category === "Sports" ||
+          s.kind === "sportsbook" ||
+          s.journey === "sports_betslip" ||
+          /betslip|event view|sports|in-?play|odds|place.?bet|cash.?out/.test(
+            hay,
+          )
+        );
+      });
+    } else if (pack === "casino" || pack === "casino & poker") {
+      list = list.filter((s) => {
+        const hay = `${s.title} ${s.category ?? ""} ${s.journey ?? ""} ${(s.tags ?? []).join(" ")} ${s.kind}`.toLowerCase();
+        return (
+          s.category === "Casino" ||
+          s.kind === "casino" ||
+          s.journey === "casino" ||
+          /casino|lobby|slots|game launch|jackpot/.test(hay)
+        );
+      });
+    }
     if (contentSort === "az") {
       list.sort((a, b) => a.title.localeCompare(b.title));
     } else if (contentSort === "popular") {
@@ -244,7 +269,7 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
       list.reverse();
     }
     return list;
-  }, [operator.screens, contentSort]);
+  }, [operator.screens, contentSort, searchParams]);
 
   const sortedUi = useMemo(() => {
     const list = [...operator.uiElements];
@@ -705,11 +730,31 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
               const canTrim = Boolean(
                 screen.sessionId && screen.artifactId && screen.videoUrl,
               );
+              const openScreen = () => {
+                setPromptSurface("Screen");
+                setPromptElement({
+                  id: screen.id,
+                  name: screen.title,
+                  count: 1,
+                  posterUrl: screen.posterUrl,
+                  videoUrl: screen.videoUrl,
+                  atMs: screen.atMs,
+                  region: screen.region,
+                  clipWindow: screen.clipWindow,
+                  evidenceId: screen.evidenceId,
+                  tags: screen.tags,
+                  journey: screen.journey,
+                  category: screen.category,
+                  sessionId: screen.sessionId,
+                  artifactId: screen.artifactId,
+                  durationMs: screen.durationMs,
+                });
+              };
               return (
                 <div key={screen.id} className="group">
                   <button
                     type="button"
-                    onClick={() => setScreenOpen(screen)}
+                    onClick={openScreen}
                     className="lib-card relative w-full overflow-hidden rounded-[28px] p-5 text-left sm:p-6 ring-0 outline-none transition hover:ring-2 hover:ring-white/20 focus-visible:ring-2 focus-visible:ring-white/40"
                   >
                     {screen.videoUrl && (
@@ -737,7 +782,7 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
                   <div className="mt-2.5 flex items-center justify-between gap-2 px-0.5">
                     <button
                       type="button"
-                      onClick={() => setScreenOpen(screen)}
+                      onClick={openScreen}
                       className="truncate text-left text-[13px] font-medium text-neutral-200 hover:text-white"
                     >
                       {screen.title}
@@ -815,7 +860,10 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
                       <div key={el.id} className="group">
                         <button
                           type="button"
-                          onClick={() => setPromptElement(el)}
+                          onClick={() => {
+                            setPromptSurface("UI element");
+                            setPromptElement(el);
+                          }}
                           className="lib-card relative w-full overflow-hidden rounded-[28px] p-5 text-left sm:p-6 ring-0 outline-none transition hover:ring-2 hover:ring-white/20 focus-visible:ring-2 focus-visible:ring-white/40"
                         >
                           <div
@@ -842,7 +890,10 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
                         <div className="mt-2.5 px-0.5">
                           <button
                             type="button"
-                            onClick={() => setPromptElement(el)}
+                            onClick={() => {
+                              setPromptSurface("UI element");
+                              setPromptElement(el);
+                            }}
                             className="truncate text-left text-[13px] font-medium text-neutral-200 hover:text-white"
                           >
                             {el.name}
@@ -1146,6 +1197,7 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
         open={Boolean(promptElement)}
         operator={operator}
         element={promptElement}
+        surfaceLabel={promptSurface}
         onClose={() => setPromptElement(null)}
       />
       <FlowStepCarousel
@@ -1163,59 +1215,6 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
           }
         }}
       />
-
-      {screenOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            aria-label="Close"
-            onClick={() => setScreenOpen(null)}
-          />
-          <div className="relative z-10 flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-2xl">
-            <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-[15px] font-semibold text-white">
-                  {screenOpen.title}
-                </h2>
-                {screenOpen.category && (
-                  <p className="text-[11px] text-neutral-500">
-                    {screenOpen.category}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setScreenOpen(null)}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:bg-white/[0.06] hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            <div
-              className={cn(
-                "mx-auto w-full bg-black",
-                isMobile
-                  ? "max-h-[80vh] max-w-[360px] aspect-[9/19]"
-                  : "aspect-video max-h-[80vh]",
-              )}
-            >
-              <CaptureMedia
-                posterUrl={screenOpen.posterUrl ?? operator.posterUrl}
-                videoUrl={screenOpen.videoUrl}
-                atMs={screenOpen.atMs}
-                region={screenOpen.region}
-                clipWindow={screenOpen.clipWindow}
-                label={screenOpen.title}
-                playOnHover={false}
-                hovering
-                loop
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {emailOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">

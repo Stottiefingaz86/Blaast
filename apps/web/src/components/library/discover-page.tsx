@@ -126,6 +126,41 @@ export function DiscoverPage() {
     const uiHay = (u: { name: string; tags?: string[]; searchText?: string; category?: string }) =>
       `${u.name} ${u.category ?? ""} ${u.searchText ?? ""} ${(u.tags ?? []).join(" ")}`.toLowerCase();
 
+    // Category packs — brand must have that vertical's clips (not just tagline)
+    if (needle === "sportsbook" || needle === "sports") {
+      return (
+        p.kind === "sportsbook" ||
+        /sport/i.test(p.category) ||
+        p.screens.some((s) => {
+          const hay = `${s.title} ${s.category ?? ""} ${s.journey ?? ""} ${(s.tags ?? []).join(" ")} ${s.kind}`;
+          return (
+            s.category === "Sports" ||
+            s.kind === "sportsbook" ||
+            s.journey === "sports_betslip" ||
+            /betslip|event view|sports|in-?play|odds|place.?bet|cash.?out/i.test(
+              hay,
+            )
+          );
+        }) ||
+        p.flows.some((f) => flowMatchesJourneyFilter(f, "Sports Betslip"))
+      );
+    }
+    if (needle === "casino" || needle === "casino & poker") {
+      return (
+        p.kind === "casino" ||
+        /casino/i.test(p.category) ||
+        p.screens.some((s) => {
+          const hay = `${s.title} ${s.category ?? ""} ${s.journey ?? ""} ${(s.tags ?? []).join(" ")}`;
+          return (
+            s.category === "Casino" ||
+            s.kind === "casino" ||
+            s.journey === "casino" ||
+            /casino|lobby|slots|game launch/i.test(hay)
+          );
+        }) ||
+        p.flows.some((f) => flowMatchesJourneyFilter(f, "Play casino"))
+      );
+    }
     // Screen filters (Home, Onboarding, …) — match that surface, not sports hero
     if (needle === "home") {
       return p.screens.some((s) =>
@@ -360,8 +395,15 @@ export function DiscoverPage() {
     categories: filters.categories,
     uiElements: filters.uiElements,
     regions: filters.regions,
-    onToggleCategory: (item: string) =>
-      setFilters((f) => ({ ...f, categories: toggleIn(f.categories, item) })),
+    onToggleCategory: (item: string) => {
+      setFilters((f) => {
+        const categories = toggleIn(f.categories, item);
+        return { ...f, categories };
+      });
+      setFilterChip((prev) =>
+        prev === item ? null : item,
+      );
+    },
     onToggleUiElement: (item: string) =>
       setFilters((f) => ({ ...f, uiElements: toggleIn(f.uiElements, item) })),
     onToggleRegion: (item: string) =>
@@ -485,7 +527,11 @@ export function DiscoverPage() {
         onApply={(next) => {
           setFilters(next);
           const primary =
-            next.screens[0] ?? next.uiElements[0] ?? next.flows[0] ?? null;
+            next.screens[0] ??
+            next.uiElements[0] ??
+            next.flows[0] ??
+            next.categories[0] ??
+            null;
           if (primary) setFilterChip(primary);
         }}
         onPickBrand={(name) => {

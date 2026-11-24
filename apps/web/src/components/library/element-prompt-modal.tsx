@@ -36,6 +36,8 @@ type Props = {
   operator: CatalogOperator;
   element: CatalogUiElement | null;
   onClose: () => void;
+  /** "Screen" when opened from Screens tab; default UI element */
+  surfaceLabel?: string;
 };
 
 type ToastKind = "png" | "link" | "prompt" | "saved" | "fail" | null;
@@ -48,6 +50,7 @@ export function ElementPromptModal({
   operator,
   element,
   onClose,
+  surfaceLabel = "UI element",
 }: Props) {
   const mcp = useMcpAccess();
   const [prompt, setPrompt] = useState("");
@@ -122,6 +125,7 @@ export function ElementPromptModal({
 
   const isMotion = /loader|skeleton/i.test(element.name);
   const hasTrim = element.clipWindow != null || element.atMs != null;
+  const hasVideo = Boolean(element.videoUrl);
   const isMobile = operator.platform === "mobile";
 
   return (
@@ -134,7 +138,7 @@ export function ElementPromptModal({
       headerLeft={
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-[12px] text-[#8a8a8a]">
-            UI element in
+            {surfaceLabel} in
             {operator.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -305,15 +309,15 @@ export function ElementPromptModal({
             atMs={element.atMs}
             region={element.region}
             label={element.name}
-            loop={isMotion || hasTrim}
-            playOnHover={!(isMotion || hasTrim)}
+            loop={isMotion || hasTrim || hasVideo}
+            playOnHover={false}
             hovering
           />
         </div>
         <p className="text-center text-[13px] text-[#8a8a8a]">
           Found in{" "}
           <span className="text-white/80">
-            {element.category ?? "UI Elements"}
+            {element.category ?? surfaceLabel}
           </span>
         </p>
       </div>

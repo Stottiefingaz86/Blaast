@@ -119,7 +119,31 @@ function matchesCategory(o: CatalogOperator, label: string) {
   if (needle === "sportsbook") {
     return (
       o.kind === "sportsbook" ||
-      o.category.toLowerCase().includes("sport")
+      o.category.toLowerCase().includes("sport") ||
+      o.screens.some((s) => {
+        const hay = `${s.title} ${s.category ?? ""} ${s.journey ?? ""} ${(s.tags ?? []).join(" ")}`;
+        return (
+          s.category === "Sports" ||
+          s.kind === "sportsbook" ||
+          s.journey === "sports_betslip" ||
+          /betslip|event view|sports|in-?play|odds/i.test(hay)
+        );
+      })
+    );
+  }
+  if (needle === "casino") {
+    return (
+      o.kind === "casino" ||
+      o.category.toLowerCase().includes("casino") ||
+      o.screens.some((s) => {
+        const hay = `${s.title} ${s.category ?? ""} ${s.journey ?? ""}`;
+        return (
+          s.category === "Casino" ||
+          s.kind === "casino" ||
+          s.journey === "casino" ||
+          /casino|lobby|slots/i.test(hay)
+        );
+      })
     );
   }
   if (needle === "rewards & vip") {

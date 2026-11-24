@@ -31,6 +31,30 @@ const FOCUS_ALIASES: Record<string, string[]> = {
   ],
   "event view": ["event view", "event", "flow-bet-event"],
   "place a bet": ["place a bet", "add to betslip", "betslip"],
+  /** Category mega-chip — pack sports surfaces, never casino/home default */
+  sportsbook: [
+    "betslip",
+    "scr-betslip",
+    "event view",
+    "flow-bet-event",
+    "flow-bet-add",
+    "flow-bet-place",
+    "sports home",
+    "sports_homepage",
+    "in-play",
+    "inplay",
+    "odds",
+    "sports",
+    "sportsbook",
+  ],
+  casino: [
+    "casino lobby",
+    "scr-casino-lobby",
+    "ca-lobby",
+    "flow-game-launch",
+    "casino",
+    "slots",
+  ],
   "first deposit": ["deposit", "cashier"],
   deposit: ["deposit", "cashier", "ftd"],
   header: ["header", "header_nav", "nav"],
@@ -58,6 +82,44 @@ const FOCUS_ALIASES: Record<string, string[]> = {
   leaderboards: ["leaderboard", "leaderboards", "race", "races"],
   races: ["race", "races", "leaderboard", "raffle"],
 };
+
+/** Prefer screens tagged Sports / sports_betslip when the category chip is Sportsbook. */
+function pickCategoryPack(
+  operator: CatalogOperator,
+  chip: string,
+): FocusHero | null {
+  const c = chip.trim().toLowerCase();
+  const wantSports = c === "sportsbook" || c === "sports";
+  const wantCasino = c === "casino" || c === "casino & poker";
+  if (!wantSports && !wantCasino) return null;
+
+  const screens = operator.screens.filter((s) => {
+    const hay = `${s.title} ${s.category ?? ""} ${s.journey ?? ""} ${(s.tags ?? []).join(" ")} ${s.kind}`.toLowerCase();
+    if (wantSports) {
+      return (
+        s.category === "Sports" ||
+        s.kind === "sportsbook" ||
+        s.journey === "sports_betslip" ||
+        /betslip|event view|sports|in-?play|odds|place.?bet|cash.?out/.test(hay)
+      );
+    }
+    return (
+      s.category === "Casino" ||
+      s.kind === "casino" ||
+      s.journey === "casino" ||
+      /casino|lobby|slots|game launch|jackpot/.test(hay)
+    );
+  });
+  const withVideo = screens.filter((s) => s.videoUrl);
+  const pick = withVideo[0] ?? screens[0];
+  if (!pick) return null;
+  return {
+    posterUrl: pick.posterUrl ?? operator.posterUrl,
+    videoUrl: pick.videoUrl ?? operator.videoUrl,
+    clipWindow: pick.clipWindow ?? operator.heroClipWindow,
+    label: pick.title,
+  };
+}
 
 function needlesFor(focus: string): string[] {
   const chip = focus.trim().toLowerCase();
@@ -177,6 +239,9 @@ export function resolveFocusHero(
       clipWindow: operator.heroClipWindow,
     };
   }
+
+  const categoryPack = pickCategoryPack(operator, chip);
+  if (categoryPack) return categoryPack;
 
   const needles = needlesFor(chip);
   const motionChip =
