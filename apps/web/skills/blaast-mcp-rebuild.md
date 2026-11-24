@@ -1,29 +1,31 @@
-# Blaast MCP rebuild (exact chrome)
+# Exact chrome replication — what actually works
 
-## Why 14 Stake videos still produce a wrong side nav
+## Do we need an LLM on the videos?
 
-Videos alone are not a rebuild contract. Exact replication needs all of:
+**Not as the measurement source.** An LLM watching webm will invent spacing, radius, and hover colours — that is why shells stay “far off.”
 
-| Need | Have today? | Role |
-|------|-------------|------|
-| Approved still of the **exact nav state** (global vs nested My Casino) | Partial — side_nav clip contains both; must pick the frame | Layout IA |
-| First-frame / tagged poster of that state | Yes if approved | Color + spacing ground truth |
-| **Logged-in header** still (wallet / search / bell / panel) | Often missing as its own beat | Header chrome |
-| Structure snapshot with **computed CSS** (bg, radius, gap, font) | Weak / often empty | Stops guessing hex |
-| Hover/active as **paired frames or CSS** | Scene-detect only — not hover | Interaction |
-| MCP returns **exact beat** (`…-ui-side-nav`), not journey | Fixed in code; must be live on Vercel | Agent sees right media |
-| Agent skill: open still → sample → code | Skill exists; must be followed | Process |
+**Yes as an optional compiler** *after* measured data exists:
 
-Without structure CSS + a named state still, agents approximate. That is the product gap — not “missing Stake clips.”
+```
+DOM structure (getComputedStyle) + stills + hover before/after
+        ↓
+ chrome schema (boxes, CSS, IA, transition ms)
+        ↓
+ LLM or template codegen → React/CSS
+```
 
-## Required sequence
+We already capture DOM structure in the extension (`apps/capture-extension/content/structure.js`). Most Stake chrome beats still lack usable structure on publish, so agents fall back to guessing from posters.
 
-1. `search_ui` operator=stake query=`side nav`
-2. Take `evidenceId` ending in `ui-side-nav` (not `first_deposit` / `home_tour`)
-3. `get_evidence` — confirm `evidence.evidenceId` matches; open `poster_url` + `video_url`
-4. Match the **same nav state** as the target screenshot (global ≠ nested)
-5. Sample colours from the still; cite artifact id in a code comment
+## What “extracted from their site” requires
 
-## Sandbox
+1. **Structure snapshot on chrome beats** (header, side_nav, tab_bar) — measured bg, radius, gap, font, boxes.
+2. **Hover / open-close states** — either force `:hover` in extension and re-snapshot, or tagged before/after frames with transition ms.
+3. **Named nav state** — `global` vs `nested_casino` (mixing these is why shells looked random).
+4. **Exact-beat MCP** — `get_evidence(…-ui-side-nav)` must not expand to a journey.
+5. **Codegen from schema** — agent applies schema; LLM does not invent layout.
 
-`/blaast-test` — empty middle, chrome only. Target for Stake shell = **global** drawer + logged-in header (user reference still).
+Videos remain for motion timing. Posters remain for visual QA. Neither replaces computed CSS.
+
+## Sandbox check
+
+`/blaast-test` — wallet **centered** in header grid; side width animates 200ms on menu toggle.

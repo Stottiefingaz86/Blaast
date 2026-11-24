@@ -5,11 +5,11 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
-  CircleHelp,
   ExternalLink,
   Gift,
   Globe,
   Handshake,
+  Headphones,
   Home,
   Menu,
   Monitor,
@@ -22,21 +22,21 @@ import {
 } from "lucide-react";
 
 /**
- * Exact chrome from user Stake reference + library side_nav stills.
- * Target state = GLOBAL drawer (Casino/Sports/Rewards/Inside) + logged-in header.
- * Evidence: ui-side-nav 23efa99e · ui-tab-bar 5e71bebc · user still 217dfd53
- * Measured: page/header #12171a · side #1a1f25 · muted #b1bad3 · blue #1475e1
+ * Chrome from Stake stills (user refs + ui-side-nav).
+ * Header = 3 columns: left chrome | CENTER wallet | right utilities.
+ * Side = global drawer; collapse animates width.
  */
 
 const S = {
   bg: "#12171a",
   side: "#1a1f25",
-  row: "#2f353d",
-  hover: "#252b32",
+  pill: "#1a1f25",
+  hover: "#2f353d",
+  active: "#2f353d",
   muted: "#b1bad3",
   text: "#ffffff",
   blue: "#1475e1",
-  pill: "#1a1f25",
+  tether: "#26a17b",
 } as const;
 
 const PRIMARY = [
@@ -68,121 +68,136 @@ export function BlaastTestShell() {
       className="flex h-screen flex-col overflow-hidden text-[14px] antialiased"
       style={{ background: S.bg, color: S.text }}
     >
-      {/* Logged-in header — matches user reference */}
-      <header className="relative z-20 flex h-[60px] shrink-0 items-center gap-3 px-3">
-        <div
-          className="flex items-center gap-0.5 rounded-full p-1"
-          style={{ background: S.pill }}
-        >
-          <button
-            type="button"
-            aria-label="Menu"
-            onClick={() => setSideOpen((o) => !o)}
-            className="flex size-9 items-center justify-center rounded-full transition-colors"
-            style={{
-              color: S.muted,
-              background: hoverId === "menu" ? S.hover : "transparent",
-            }}
-            onMouseEnter={() => setHoverId("menu")}
-            onMouseLeave={() => setHoverId(null)}
-          >
-            <Menu className="size-[18px]" strokeWidth={2} />
-          </button>
-          <RailIcon
-            title="Home"
-            active={product === "home"}
-            onClick={() => setProduct("home")}
-          >
-            <Home className="size-4" strokeWidth={2.25} />
-          </RailIcon>
-          <RailIcon
-            title="Casino"
-            active={product === "casino"}
-            onClick={() => setProduct("casino")}
-          >
-            <CardIcon />
-          </RailIcon>
-          <RailIcon
-            title="Sports"
-            active={product === "sports"}
-            onClick={() => setProduct("sports")}
-          >
-            <BallIcon />
-          </RailIcon>
-        </div>
-
-        <span
-          className="ml-1 select-none text-[26px] leading-none tracking-tight"
-          style={{
-            fontFamily: "ui-serif, Georgia, 'Times New Roman', Times, serif",
-            fontWeight: 600,
-          }}
-        >
-          Blaast
-        </span>
-
-        <div className="ml-auto flex items-center gap-2">
+      <header
+        className="relative z-20 grid h-[60px] shrink-0 items-center px-3"
+        style={{ gridTemplateColumns: "1fr auto 1fr" }}
+      >
+        {/* LEFT — product rail + logo */}
+        <div className="flex min-w-0 items-center gap-3 justify-self-start">
           <div
-            className="flex h-10 items-center gap-2 rounded-md pl-3 pr-1"
+            className="flex items-center gap-0.5 rounded-full p-1"
             style={{ background: S.pill }}
           >
-            <TetherIcon />
-            <span className="text-[13px] tabular-nums font-medium">
-              0.00000000
-            </span>
-            <ChevronDown
-              className="size-3.5 opacity-70"
-              style={{ color: S.muted }}
-            />
+            <IconBtn
+              label="Menu"
+              hot={hoverId === "menu"}
+              onEnter={() => setHoverId("menu")}
+              onLeave={() => setHoverId(null)}
+              onClick={() => setSideOpen((o) => !o)}
+            >
+              <Menu className="size-[18px]" strokeWidth={2} />
+            </IconBtn>
+            <RailIcon
+              title="Home"
+              active={product === "home"}
+              onClick={() => setProduct("home")}
+            >
+              <Home className="size-4" strokeWidth={2.25} />
+            </RailIcon>
+            <RailIcon
+              title="Casino"
+              active={product === "casino"}
+              onClick={() => setProduct("casino")}
+            >
+              <CardIcon />
+            </RailIcon>
+            <RailIcon
+              title="Sports"
+              active={product === "sports"}
+              onClick={() => setProduct("sports")}
+            >
+              <BallIcon />
+            </RailIcon>
+          </div>
+          <span
+            className="select-none text-[26px] leading-none tracking-tight"
+            style={{
+              fontFamily: "ui-serif, Georgia, 'Times New Roman', Times, serif",
+              fontWeight: 600,
+            }}
+          >
+            Blaast
+          </span>
+        </div>
+
+        {/* CENTER — balance pill + wallet (Stake shape) */}
+        <div className="flex items-center justify-self-center">
+          <div className="flex items-center">
             <button
               type="button"
-              className="ml-1 flex size-8 items-center justify-center rounded-md transition-opacity hover:opacity-90"
-              style={{ background: S.blue }}
-              title="Wallet"
+              className="flex h-10 items-center gap-2 rounded-l-md rounded-r-none pl-3 pr-2 transition-colors"
+              style={{ background: S.pill }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = S.hover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = S.pill;
+              }}
             >
-              <Wallet className="size-3.5 text-white" strokeWidth={2} />
+              <span
+                className="flex size-[18px] items-center justify-center rounded-full text-[10px] font-bold leading-none"
+                style={{ background: S.tether, color: "#fff" }}
+                aria-hidden
+              >
+                ₮
+              </span>
+              <span className="text-[13px] font-semibold tabular-nums tracking-tight">
+                0.00000000
+              </span>
+              <ChevronDown
+                className="size-3.5"
+                style={{ color: S.muted }}
+                strokeWidth={2.5}
+              />
+            </button>
+            <button
+              type="button"
+              title="Wallet"
+              className="flex size-10 items-center justify-center rounded-r-md rounded-l-none transition-opacity hover:opacity-90"
+              style={{ background: S.blue }}
+            >
+              <Wallet className="size-4 text-white" strokeWidth={2.25} />
             </button>
           </div>
+        </div>
 
-          <HdrBtn
-            label="Search"
-            hot={hoverId === "search"}
-            onEnter={() => setHoverId("search")}
-            onLeave={() => setHoverId(null)}
-          >
-            <Search className="size-[18px]" />
-          </HdrBtn>
-          <HdrBtn
-            label="Notifications"
-            hot={hoverId === "bell"}
-            onEnter={() => setHoverId("bell")}
-            onLeave={() => setHoverId(null)}
-          >
-            <Bell className="size-[18px]" />
-          </HdrBtn>
-          <HdrBtn
-            label="Account"
-            hot={hoverId === "user"}
-            onEnter={() => setHoverId("user")}
-            onLeave={() => setHoverId(null)}
-          >
-            <User className="size-[18px]" />
-          </HdrBtn>
-          <HdrBtn
-            label="Chat panel"
-            hot={hoverId === "panel"}
-            onEnter={() => setHoverId("panel")}
-            onLeave={() => setHoverId(null)}
-          >
-            <PanelRight className="size-[18px]" />
-          </HdrBtn>
+        {/* RIGHT — utilities */}
+        <div className="flex items-center gap-0.5 justify-self-end">
+          {(
+            [
+              ["search", Search, "Search"],
+              ["bell", Bell, "Notifications"],
+              ["user", User, "Account"],
+              ["panel", PanelRight, "Chat panel"],
+            ] as const
+          ).map(([id, Icon, label]) => (
+            <IconBtn
+              key={id}
+              label={label}
+              hot={hoverId === id}
+              onEnter={() => setHoverId(id)}
+              onLeave={() => setHoverId(null)}
+            >
+              <Icon className="size-[18px]" strokeWidth={1.75} />
+            </IconBtn>
+          ))}
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 px-2 pb-2">
-        {sideOpen && (
-          <aside
-            className="flex w-[240px] shrink-0 flex-col overflow-hidden rounded-[12px]"
+      <div className="flex min-h-0 flex-1 gap-0 px-2 pb-2">
+        <aside
+          className="flex shrink-0 flex-col overflow-hidden"
+          style={{
+            width: sideOpen ? 240 : 0,
+            opacity: sideOpen ? 1 : 0,
+            transition:
+              "width 200ms cubic-bezier(0.4, 0, 0.2, 1), opacity 160ms ease",
+            pointerEvents: sideOpen ? "auto" : "none",
+          }}
+          aria-hidden={!sideOpen}
+        >
+          <div
+            className="flex h-full w-[240px] flex-col overflow-hidden rounded-[16px]"
             style={{ background: S.side }}
           >
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-1 pt-2">
@@ -278,16 +293,16 @@ export function BlaastTestShell() {
                 onMouseEnter={() => setHoverId("help")}
                 onMouseLeave={() => setHoverId(null)}
               >
-                <CircleHelp className="size-4" />
+                <Headphones className="size-4" />
               </button>
             </div>
-          </aside>
-        )}
+          </div>
+        </aside>
 
         <main className="relative min-h-0 flex-1" style={{ background: S.bg }}>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <p className="text-center text-[12px]" style={{ color: S.muted }}>
-              Empty stage · global side nav from your Stake still
+              Empty stage · wallet centered · side collapses 200ms
             </p>
           </div>
         </main>
@@ -346,7 +361,7 @@ function NavRow({
     >
       <span
         className="flex size-[18px] shrink-0 items-center justify-center"
-        style={{ color: S.muted }}
+        style={{ color: hovered ? S.text : S.muted }}
       >
         {children}
       </span>
@@ -354,10 +369,16 @@ function NavRow({
         {label}
       </span>
       {chevron && (
-        <ChevronRight className="size-3.5 opacity-50" style={{ color: S.muted }} />
+        <ChevronRight
+          className="size-3.5 opacity-50"
+          style={{ color: S.muted }}
+        />
       )}
       {external && (
-        <ExternalLink className="size-3 opacity-50" style={{ color: S.muted }} />
+        <ExternalLink
+          className="size-3 opacity-50"
+          style={{ color: S.muted }}
+        />
       )}
     </button>
   );
@@ -381,7 +402,7 @@ function RailIcon({
       onClick={onClick}
       className="flex size-9 items-center justify-center rounded-full transition-colors"
       style={{
-        background: active ? S.row : "transparent",
+        background: active ? S.active : "transparent",
         color: active ? S.text : S.muted,
       }}
       onMouseEnter={(e) => {
@@ -396,23 +417,26 @@ function RailIcon({
   );
 }
 
-function HdrBtn({
+function IconBtn({
   children,
   label,
   hot,
   onEnter,
   onLeave,
+  onClick,
 }: {
   children: ReactNode;
   label: string;
   hot: boolean;
   onEnter: () => void;
   onLeave: () => void;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
+      onClick={onClick}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       className="flex size-9 items-center justify-center rounded-full transition-colors"
@@ -531,17 +555,5 @@ function BallIcon() {
         strokeWidth="1.2"
       />
     </svg>
-  );
-}
-
-function TetherIcon() {
-  return (
-    <span
-      className="flex size-4 items-center justify-center rounded-full text-[9px] font-bold"
-      style={{ background: "#26a17b", color: "#fff" }}
-      aria-hidden
-    >
-      T
-    </span>
   );
 }
