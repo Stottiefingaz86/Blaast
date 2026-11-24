@@ -247,15 +247,114 @@ export async function publishApprovedArtifact(
   // Tag-anchored stills for searchable element cards
   try {
     const { capturesRoot } = await import("@/lib/admin/store");
-    const { extractAnnotationStills } = await import(
+    const { extractAnnotationStills, extractPosterFrame } = await import(
       "@/lib/admin/poster-from-video"
     );
     await extractAnnotationStills({
       capturesRoot: capturesRoot(),
       artifact: art,
     });
+    // Ensure every approved clip has a first-frame poster (Mobbin-style glance)
+    if (art.videoPath && !art.posterPath) {
+      const posterRel = art.videoPath.replace(/\.webm$/i, ".png");
+      const ok = await extractPosterFrame({
+        videoAbsPath: path.join(capturesRoot(), art.videoPath),
+        posterAbsPath: path.join(capturesRoot(), posterRel),
+        atMs: art.clipWindow?.startMs
+          ? art.clipWindow.startMs + 400
+          : 800,
+      });
+      if (ok) art.posterPath = posterRel;
+    }
   } catch (err) {
     console.error("[publishApprovedArtifact] annotation stills", err);
+  }
+
+  // Video motion / transition analysis + chrome regions for MCP rebuilds
+  try {
+    const { capturesRoot } = await import("@/lib/admin/store");
+    if (art.videoPath) {
+      const {
+        analyzeVideoMotion,
+        buildMotionStructureSnapshot,
+        defaultDesktopChromeRegions,
+        cropPosterRegion,
+      } = await import("@/lib/admin/analyze-video-motion");
+      const root = capturesRoot();
+      const videoAbs = path.join(root, art.videoPath);
+      const { motionHints } = await analyzeVideoMotion({
+        videoAbsPath: videoAbs,
+        durationMs: art.durationMs,
+      });
+      const structureRel = `${session.id}/${art.id}.structure.json`;
+      const snap = buildMotionStructureSnapshot({
+        pageUrl: art.pageUrl,
+        viewport: art.viewport
+          ? {
+              width: art.viewport.width,
+              height: art.viewport.height,
+            }
+          : undefined,
+        motionHints,
+        chromeRegions:
+          /lobby|home|side.?nav|header|casino|sports/i.test(
+            art.coverageStepId,
+          )
+            ? defaultDesktopChromeRegions()
+            : undefined,
+      });
+      await fs.mkdir(path.dirname(path.join(root, structureRel)), {
+        recursive: true,
+      });
+      await fs.writeFile(
+        path.join(root, structureRel),
+        JSON.stringify(snap, null, 2),
+        "utf8",
+      );
+      art.structurePath = structureRel;
+
+      // Derive header + side_nav stills from lobby/home posters when those beats exist
+      if (
+        art.posterPath &&
+        /scr-casino-lobby|scr-home|ui-side-nav|ui-header/i.test(
+          art.coverageStepId,
+        )
+      ) {
+        const posterAbs = path.join(root, art.posterPath);
+        const anns = [...(art.annotations ?? [])];
+        for (const region of defaultDesktopChromeRegions().filter(
+          (r) => r.role === "header" || r.role === "side_nav",
+        )) {
+          const tag = region.role;
+          if (anns.some((a) => a.tag === tag)) continue;
+          const cropRel = `${session.id}/${art.id}-${tag}.png`;
+          const ok = await cropPosterRegion({
+            posterAbsPath: posterAbs,
+            outAbsPath: path.join(root, cropRel),
+            box: region.box,
+          });
+          if (!ok) continue;
+          anns.push({
+            id: `${art.id}-${tag}`,
+            label: tag === "header" ? "Header" : "Side navigation",
+            tag,
+            atMs: 800,
+            region: {
+              x: region.box.x,
+              y: region.box.y,
+              w: region.box.width,
+              h: region.box.height,
+            },
+            posterPath: cropRel,
+            publishElement: true,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        art.annotations = anns;
+      }
+    }
+  } catch (err) {
+    console.error("[publishApprovedArtifact] video motion", err);
   }
 
   const record = buildRecord(session, art, operator);
