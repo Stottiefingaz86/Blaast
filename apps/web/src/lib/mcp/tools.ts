@@ -395,7 +395,6 @@ export async function callMcpTool(
           id: s.id,
           label: s.label,
           kind: s.kind,
-          tags: s.tags ?? [],
           evidence_id: s.evidenceId,
           has_structure: Boolean(s.region),
           has_motion: Boolean(s.videoUrl),
