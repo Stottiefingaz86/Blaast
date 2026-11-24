@@ -113,7 +113,7 @@ export function CaptureStage({
   const refreshSession = useCallback(async () => {
     const res = await fetch(`/api/admin/sessions/${session.id}`);
     const data = await res.json();
-    if (data.session) setSession(data.session);
+    if (data.session) setSession(data.session as CaptureSession);
     return data.session as CaptureSession | undefined;
   }, [session.id]);
 
@@ -423,6 +423,40 @@ export function CaptureStage({
     }
   }
 
+  async function putSignedUpload(
+    signedUrl: string,
+    token: string,
+    blob: Blob,
+    contentType: string,
+  ) {
+    const res = await fetch(signedUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": contentType,
+        Authorization: `Bearer ${token}`,
+        "x-upsert": "true",
+      },
+      body: blob,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `Storage upload failed (${res.status})${text ? `: ${text.slice(0, 120)}` : ""}`,
+      );
+    }
+  }
+
+  async function readJsonSafe(res: Response) {
+    const text = await res.text();
+    try {
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      throw new Error(
+        `Server returned non-JSON (${res.status}): ${text.slice(0, 120) || "empty"}`,
+      );
+    }
+  }
+
   async function uploadRecording() {
     if (!step) {
       finishingRef.current = false;
@@ -432,17 +466,78 @@ export function CaptureStage({
     setRecState("uploading");
     try {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      if (blob.size < 2000) {
+        throw new Error(
+          "Empty recording — share the site Window (not this remote), then Record → Stop",
+        );
+      }
       const durationMs = startedAtRef.current
         ? Date.now() - startedAtRef.current
         : undefined;
-      const posterBase64 = posterRef.current;
+      const posterDataUrl = posterRef.current;
       posterRef.current = undefined;
-      const videoBase64 = await blobToBase64(blob);
 
-      const res = await fetch(`/api/admin/sessions/${session.id}/artifacts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const prepRes = await fetch(
+        `/api/admin/sessions/${session.id}/artifact-upload`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            coverageStepId: step.id,
+            hasPoster: Boolean(posterDataUrl),
+          }),
+        },
+      );
+      const prep = (await readJsonSafe(prepRes)) as {
+        error?: string;
+        artifactId?: string;
+        videoPath?: string;
+        videoUploadUrl?: string;
+        videoToken?: string;
+      };
+
+      let registerBody: Record<string, unknown>;
+      if (
+        prepRes.ok &&
+        prep.artifactId &&
+        prep.videoUploadUrl &&
+        prep.videoToken &&
+        prep.videoPath
+      ) {
+        await putSignedUpload(
+          prep.videoUploadUrl,
+          prep.videoToken,
+          blob,
+          "video/webm",
+        );
+        registerBody = {
+          coverageStepId: step.id,
+          kind: "clip",
+          artifactId: prep.artifactId,
+          videoPath: prep.videoPath,
+          pageUrl: operator.url,
+          pageTitle: operator.name,
+          viewport: {
+            width: viewport.width,
+            height: viewport.height,
+            devicePixelRatio: viewport.devicePixelRatio,
+          },
+          durationMs,
+          videoMime: "video/webm",
+          posterBase64: posterDataUrl,
+          posterMime: "image/png",
+          sensitiveFlags: [],
+        };
+      } else {
+        // Fallback for local/dev when signed upload is unavailable
+        if (blob.size > 3_500_000) {
+          throw new Error(
+            prep.error ||
+              "Clip too large for fallback upload — check Supabase keys on Vercel",
+          );
+        }
+        const videoBase64 = await blobToBase64(blob);
+        registerBody = {
           coverageStepId: step.id,
           kind: "clip",
           pageUrl: operator.url,
@@ -455,17 +550,24 @@ export function CaptureStage({
           durationMs,
           videoBase64,
           videoMime: "video/webm",
-          posterBase64,
+          posterBase64: posterDataUrl,
           posterMime: "image/png",
           sensitiveFlags: [],
-        }),
+        };
+      }
+
+      const res = await fetch(`/api/admin/sessions/${session.id}/artifacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registerBody),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw new Error(String(data.error || "Upload failed"));
 
       const art = data.artifact as RecordingArtifact;
+      if (!art?.id) throw new Error("Upload returned no artifact");
       setLastClip(art);
-      setSession(data.session);
+      setSession(data.session as CaptureSession);
       setReviewClipId(art.id);
       toast.success(
         streamIsLive(streamRef.current)
@@ -474,7 +576,7 @@ export function CaptureStage({
       );
       await patchGuide({
         currentStepId:
-          data.session.guide?.currentStepId ?? step.id,
+          (data.session as CaptureSession).guide?.currentStepId ?? step.id,
         phase: "idle",
         recordingStartedAt: null,
       });

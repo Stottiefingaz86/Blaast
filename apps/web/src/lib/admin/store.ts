@@ -396,8 +396,12 @@ export async function updateSessionGuide(
   },
 ) {
   const store = await ensureStore();
-  const session = store.sessions.find((s) => s.id === sessionId);
-  if (!session) return null;
+  let session = store.sessions.find((s) => s.id === sessionId);
+  if (!session) {
+    const hydrated = await getSession(sessionId);
+    if (!hydrated) return null;
+    session = store.sessions.find((s) => s.id === sessionId) ?? hydrated;
+  }
   const prev = session.guide ?? defaultGuide(null);
   session.guide = {
     currentStepId:
@@ -437,34 +441,66 @@ export async function saveRecordingArtifact(input: {
   posterBase64?: string;
   posterMime?: string;
   structureJson?: unknown;
+  /** Already uploaded to Storage (direct browser PUT) — skip base64 body. */
+  videoPath?: string;
+  posterPath?: string;
+  artifactId?: string;
 }) {
   const store = await ensureStore();
-  const session = store.sessions.find((s) => s.id === input.sessionId);
+  let session = store.sessions.find((s) => s.id === input.sessionId);
+  if (!session) {
+    try {
+      const { getSessionCloud } = await import("@/lib/admin/sessions-cloud");
+      const cloud = await getSessionCloud(input.sessionId);
+      if (cloud) {
+        store.sessions.push(cloud);
+        session = cloud;
+      }
+    } catch (err) {
+      console.error("[saveRecordingArtifact] cloud hydrate", err);
+    }
+  }
   if (!session) throw new Error("Session not found");
 
-  const id = randomUUID();
+  const id = input.artifactId?.trim() || randomUUID();
   const dir = sessionCapturesDir(session.id);
   await fs.mkdir(dir, { recursive: true });
 
-  let videoPath: string | undefined;
-  let posterPath: string | undefined;
+  let videoPath: string | undefined = input.videoPath?.replace(/^\//, "");
+  let posterPath: string | undefined = input.posterPath?.replace(/^\//, "");
   let structurePath: string | undefined;
 
-  if (input.videoBase64) {
+  if (input.videoBase64 && !videoPath) {
     const ext = input.videoMime?.includes("mp4") ? "mp4" : "webm";
     videoPath = `${session.id}/${id}.${ext}`;
-    await fs.writeFile(
-      path.join(CAPTURES_DIR(), videoPath),
-      Buffer.from(input.videoBase64, "base64"),
-    );
+    const buf = Buffer.from(input.videoBase64, "base64");
+    await fs.writeFile(path.join(CAPTURES_DIR(), videoPath), buf);
+    try {
+      const { uploadCaptureBuffer } = await import("@/lib/storage/captures");
+      await uploadCaptureBuffer({
+        objectPath: videoPath,
+        body: buf,
+        contentType: input.videoMime || "video/webm",
+      });
+    } catch (err) {
+      console.error("[saveRecordingArtifact] video cloud", err);
+    }
   }
-  if (input.posterBase64) {
+  if (input.posterBase64 && !posterPath) {
     const ext = input.posterMime?.includes("jpeg") ? "jpg" : "png";
     posterPath = `${session.id}/${id}.${ext}`;
-    await fs.writeFile(
-      path.join(CAPTURES_DIR(), posterPath),
-      Buffer.from(input.posterBase64, "base64"),
-    );
+    const buf = Buffer.from(input.posterBase64, "base64");
+    await fs.writeFile(path.join(CAPTURES_DIR(), posterPath), buf);
+    try {
+      const { uploadCaptureBuffer } = await import("@/lib/storage/captures");
+      await uploadCaptureBuffer({
+        objectPath: posterPath,
+        body: buf,
+        contentType: input.posterMime || "image/png",
+      });
+    } catch (err) {
+      console.error("[saveRecordingArtifact] poster cloud", err);
+    }
   }
   if (input.structureJson !== undefined) {
     structurePath = `${session.id}/${id}.structure.json`;

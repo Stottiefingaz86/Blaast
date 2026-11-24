@@ -39,6 +39,25 @@ const routes: Route[] = [
   {
     match: (parts) => {
       if (parts.length !== 4) return null;
+      if (
+        !(
+          parts[0] === "admin" &&
+          parts[1] === "sessions" &&
+          Boolean(parts[2]) &&
+          parts[3] === "artifact-upload"
+        )
+      )
+        return null;
+      return { id: parts[2]! } as Record<string, string>;
+    },
+    load: () =>
+      import(
+        "@/lib/api-handlers/admin_sessions_id_artifact_upload"
+      ) as unknown as Promise<Handlers>,
+  },
+  {
+    match: (parts) => {
+      if (parts.length !== 4) return null;
       if (!(parts[0] === "admin" && parts[1] === "sessions" && Boolean(parts[2]) && parts[3] === "enrich")) return null;
       return { "id": parts[2]! } as Record<string, string>;
     },

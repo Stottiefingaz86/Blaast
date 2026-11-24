@@ -19,25 +19,18 @@ export function storagePublicUrl(objectPath: string): string | null {
   return `${cfg.url}/storage/v1/object/public/${BUCKET}/${objectPath.replace(/^\//, "")}`;
 }
 
+export { artifactPublicUrl } from "@/lib/storage/public-url";
+
 /**
- * Upload a local capture file to Supabase Storage.
- * Returns the object path (relative) on success.
+ * Upload bytes to Supabase Storage. Returns the object path on success.
  */
-export async function uploadCaptureObject(opts: {
+export async function uploadCaptureBuffer(opts: {
   objectPath: string;
-  absolutePath: string;
+  body: Buffer | Uint8Array;
   contentType: string;
 }): Promise<string | null> {
   const cfg = supabaseConfig();
   if (!cfg) return null;
-
-  let body: Buffer;
-  try {
-    body = await fs.readFile(opts.absolutePath);
-  } catch {
-    return null;
-  }
-
   const objectPath = opts.objectPath.replace(/^\//, "");
   const res = await fetch(
     `${cfg.url}/storage/v1/object/${BUCKET}/${objectPath}`,
@@ -49,7 +42,7 @@ export async function uploadCaptureObject(opts: {
         "Content-Type": opts.contentType,
         "x-upsert": "true",
       },
-      body: new Uint8Array(body),
+      body: new Uint8Array(opts.body),
     },
   );
   if (!res.ok) {
@@ -58,6 +51,75 @@ export async function uploadCaptureObject(opts: {
     return null;
   }
   return objectPath;
+}
+
+/**
+ * Upload a local capture file to Supabase Storage.
+ * Returns the object path (relative) on success.
+ */
+export async function uploadCaptureObject(opts: {
+  objectPath: string;
+  absolutePath: string;
+  contentType: string;
+}): Promise<string | null> {
+  let body: Buffer;
+  try {
+    body = await fs.readFile(opts.absolutePath);
+  } catch {
+    return null;
+  }
+  return uploadCaptureBuffer({
+    objectPath: opts.objectPath,
+    body,
+    contentType: opts.contentType,
+  });
+}
+
+/**
+ * Mint a short-lived signed upload URL so the browser can PUT video
+ * directly to Storage (bypasses Vercel’s ~4.5MB request body limit).
+ */
+export async function createSignedCaptureUpload(opts: {
+  objectPath: string;
+}): Promise<{ path: string; signedUrl: string; token: string } | null> {
+  const cfg = supabaseConfig();
+  if (!cfg) return null;
+  const objectPath = opts.objectPath.replace(/^\//, "");
+  const res = await fetch(
+    `${cfg.url}/storage/v1/object/upload/sign/${BUCKET}/${objectPath}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: cfg.key,
+        Authorization: `Bearer ${cfg.key}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    },
+  );
+  if (!res.ok) {
+    console.error(
+      "[storage sign upload]",
+      res.status,
+      objectPath,
+      (await res.text()).slice(0, 200),
+    );
+    return null;
+  }
+  const data = (await res.json()) as {
+    url?: string;
+    Url?: string;
+    signedUrl?: string;
+    token?: string;
+    Token?: string;
+  };
+  const rawUrl = data.url || data.Url || data.signedUrl;
+  const token = data.token || data.Token;
+  if (!rawUrl || !token) return null;
+  const signedUrl = rawUrl.startsWith("http")
+    ? rawUrl
+    : `${cfg.url}/storage/v1${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
+  return { path: objectPath, signedUrl, token };
 }
 
 /** Upload video + poster for a published artifact; returns public URLs. */

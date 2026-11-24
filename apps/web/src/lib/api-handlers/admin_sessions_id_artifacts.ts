@@ -12,8 +12,8 @@ export async function GET(
 }
 
 /**
- * Upload a recording step from the capture extension.
- * Body JSON: coverageStepId, kind, videoBase64?, posterBase64?, structureJson?, …
+ * Register a capture beat. Prefer videoPath/posterPath after direct Storage PUT;
+ * videoBase64 still works for small local clips.
  */
 export async function POST(
   req: Request,
@@ -27,9 +27,14 @@ export async function POST(
       { status: 400 },
     );
   }
-  if (!body?.videoBase64 && !body?.posterBase64) {
+  const hasMedia =
+    Boolean(body?.videoBase64) ||
+    Boolean(body?.posterBase64) ||
+    Boolean(body?.videoPath) ||
+    Boolean(body?.posterPath);
+  if (!hasMedia) {
     return NextResponse.json(
-      { error: "videoBase64 or posterBase64 required" },
+      { error: "videoPath/posterPath or base64 media required" },
       { status: 400 },
     );
   }
@@ -51,6 +56,9 @@ export async function POST(
       posterBase64: body.posterBase64 ? String(body.posterBase64) : undefined,
       posterMime: body.posterMime ? String(body.posterMime) : "image/png",
       structureJson: body.structureJson,
+      videoPath: body.videoPath ? String(body.videoPath) : undefined,
+      posterPath: body.posterPath ? String(body.posterPath) : undefined,
+      artifactId: body.artifactId ? String(body.artifactId) : undefined,
     });
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
