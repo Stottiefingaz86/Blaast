@@ -8,12 +8,38 @@ import type {
   FlowEvidence,
 } from "@/lib/evidence/types";
 import { curatedTagMeta, tagSearchText } from "@/lib/library/tag-catalog";
+import { artifactPublicUrl } from "@/lib/storage/public-url";
 
 function matchQuery(hay: string, q: string) {
-  const parts = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const stop = new Set([
+    "a",
+    "an",
+    "the",
+    "with",
+    "and",
+    "or",
+    "on",
+    "for",
+    "of",
+    "to",
+    "in",
+    "desktop",
+    "mobile",
+    "web",
+    "page",
+    "screen",
+    "homepage",
+  ]);
+  const parts = q
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((p) => !stop.has(p) && p.length > 1);
   if (!parts.length) return true;
   const h = hay.toLowerCase();
-  return parts.every((p) => h.includes(p));
+  // Prefer all significant tokens; fall back to ≥50% so natural phrases still hit
+  const hits = parts.filter((p) => h.includes(p)).length;
+  return hits === parts.length || hits >= Math.ceil(parts.length * 0.5);
 }
 
 function mediaUrls(
@@ -22,11 +48,13 @@ function mediaUrls(
   origin: string,
 ) {
   const base = origin.replace(/\/$/, "");
-  // Public library media for approved clips (no admin auth)
+  // Prefer CDN still/video (first-frame posters live in Storage)
   const pub = `${base}/api/library/media/${sessionId}/${art.id}`;
+  const cloudPoster = artifactPublicUrl(art.posterPath);
+  const cloudVideo = artifactPublicUrl(art.videoPath);
   return {
-    posterUrl: art.posterPath ? `${pub}?file=poster` : undefined,
-    videoUrl: art.videoPath ? `${pub}?file=video` : undefined,
+    posterUrl: cloudPoster ?? (art.posterPath ? `${pub}?file=poster` : undefined),
+    videoUrl: cloudVideo ?? (art.videoPath ? `${pub}?file=video` : undefined),
     structureUrl: art.structurePath
       ? `${base}/api/admin/sessions/${sessionId}/artifacts/${art.id}?file=structure`
       : undefined,
@@ -37,12 +65,34 @@ function mediaUrls(
 export async function listPublishedHits(
   origin: string,
 ): Promise<EvidenceSearchHit[]> {
-  const [operators, sessions] = await Promise.all([
+  const [operators, sessions, cloudRows] = await Promise.all([
     listOperators(),
     listSessions(),
+    import("@/lib/evidence/publish").then((m) => m.listPublishedClips()),
   ]);
   const byId = new Map(operators.map((o) => [o.id, o]));
+  const cloudByArtifact = new Map(
+    cloudRows.map((r) => [r.artifactId, r] as const),
+  );
   const hits: EvidenceSearchHit[] = [];
+  const seen = new Set<string>();
+
+  const cloudPoster = (artifactId: string, posterPath?: string) => {
+    const rec = cloudByArtifact.get(artifactId);
+    if (rec?.posterUrl?.startsWith("http")) return rec.posterUrl;
+    return (
+      artifactPublicUrl(rec?.posterPath ?? posterPath) ??
+      artifactPublicUrl(posterPath)
+    );
+  };
+  const cloudVideo = (artifactId: string, videoPath?: string) => {
+    const rec = cloudByArtifact.get(artifactId);
+    if (rec?.videoUrl?.startsWith("http")) return rec.videoUrl;
+    return (
+      artifactPublicUrl(rec?.videoPath ?? videoPath) ??
+      artifactPublicUrl(videoPath)
+    );
+  };
 
   for (const session of sessions) {
     const op = byId.get(session.operatorId);
@@ -55,22 +105,27 @@ export async function listPublishedHits(
       const annTags = (art.annotations ?? []).map((a) => a.tag);
       const tags = [...new Set([...(cov?.tags ?? []), ...annTags])];
       const media = mediaUrls(art, session.id, origin);
+      const posterUrl =
+        cloudPoster(art.id, art.posterPath) ?? media.posterUrl;
+      const videoUrl = cloudVideo(art.id, art.videoPath) ?? media.videoUrl;
       const kind =
         (cov?.taxonomy as EvidenceSearchHit["kind"]) || "screen";
       const platform =
         session.platform === "mobile_web" ? "mobile" : ("web" as const);
+      const beatId = `cap-${art.id}`;
+      seen.add(beatId);
       hits.push({
-        id: `cap-${art.id}`,
+        id: beatId,
         kind,
         title: cov?.instruction ?? art.coverageStepId,
         operator: op.name,
         operatorSlug: op.hostname,
         tags,
         platform,
-        hasVideo: Boolean(art.videoPath),
+        hasVideo: Boolean(videoUrl || art.videoPath),
         hasMotion:
           tags.some((t) => /loader|skeleton|spinner|motion|anim/i.test(t)) ||
-          Boolean(art.videoPath),
+          Boolean(videoUrl || art.videoPath),
         hasStructure: Boolean(art.structurePath),
         confidence: "reviewed",
         evidenceId: `ev-rec-${session.id}-${art.coverageStepId}`,
@@ -78,7 +133,9 @@ export async function listPublishedHits(
           ? `${op.hostname}-${cov.flowId}`
           : `${op.hostname}-coverage`,
         coverageStepId: art.coverageStepId,
-        ...media,
+        posterUrl,
+        videoUrl,
+        structureUrl: media.structureUrl,
         adminPath: `/admin/capture/${session.id}`,
       });
 
@@ -96,15 +153,8 @@ export async function listPublishedHits(
           ...(curated?.synonyms ?? []),
         ];
         const searchHay = tagSearchText(ann.tag, { title, synonyms });
-        const trimStart =
-          ann.clipWindow?.startMs ??
-          (ann.atMs != null ? Math.max(0, ann.atMs - 400) : undefined);
-        const base = `${origin.replace(/\/$/, "")}/api/library/media/${session.id}/${art.id}`;
-        const posterUrl = ann.posterPath
-          ? `${base}?file=poster&ann=${encodeURIComponent(ann.id)}`
-          : trimStart != null
-            ? `${base}?file=poster&t=${Math.round(trimStart)}`
-            : media.posterUrl;
+        const annPoster =
+          artifactPublicUrl(ann.posterPath) ?? posterUrl;
         hits.push({
           id: `cap-${art.id}-el-${ann.id}`,
           kind: "ui_element",
@@ -113,8 +163,8 @@ export async function listPublishedHits(
           operatorSlug: op.hostname,
           tags: [...new Set([ann.tag, searchHay, ...tags, ...synonyms])],
           platform,
-          hasVideo: Boolean(art.videoPath),
-          hasMotion: Boolean(art.videoPath),
+          hasVideo: Boolean(videoUrl || art.videoPath),
+          hasMotion: Boolean(videoUrl || art.videoPath),
           hasStructure: Boolean(ann.region || art.structurePath),
           confidence: "reviewed",
           evidenceId: `ev-rec-${session.id}-${art.coverageStepId}#${ann.id}`,
@@ -122,8 +172,8 @@ export async function listPublishedHits(
             ? `${op.hostname}-${cov.flowId}`
             : `${op.hostname}-coverage`,
           coverageStepId: art.coverageStepId,
-          posterUrl,
-          videoUrl: media.videoUrl,
+          posterUrl: annPoster,
+          videoUrl,
           structureUrl: media.structureUrl,
           adminPath: `/admin/capture/${session.id}`,
           atMs: ann.atMs,
@@ -133,6 +183,43 @@ export async function listPublishedHits(
         });
       }
     }
+  }
+
+  // Cloud-only published clips (Vercel has no local sessions)
+  for (const rec of cloudRows) {
+    const beatId = `cap-${rec.artifactId}`;
+    if (seen.has(beatId)) continue;
+    const cov = coverageStepById(rec.coverageStepId);
+    const tags = [
+      ...new Set([...(cov?.tags ?? []), ...(rec.tags ?? [])]),
+    ];
+    const platform =
+      rec.platform === "mobile_web" || rec.platform === "mobile"
+        ? ("mobile" as const)
+        : ("web" as const);
+    hits.push({
+      id: beatId,
+      kind: (cov?.taxonomy as EvidenceSearchHit["kind"]) || "screen",
+      title: cov?.instruction ?? rec.instruction ?? rec.coverageStepId,
+      operator: rec.operatorName,
+      operatorSlug: rec.operatorHostname,
+      tags,
+      platform,
+      hasVideo: Boolean(rec.videoUrl || rec.videoPath),
+      hasMotion:
+        tags.some((t) => /loader|skeleton|spinner|motion|anim/i.test(t)) ||
+        Boolean(rec.videoUrl || rec.videoPath),
+      hasStructure: Boolean(rec.structurePath),
+      confidence: "reviewed",
+      evidenceId: rec.evidenceId || `ev-rec-${rec.sessionId}-${rec.coverageStepId}`,
+      flowId: cov?.flowId
+        ? `${rec.operatorHostname}-${cov.flowId}`
+        : `${rec.operatorHostname}-coverage`,
+      coverageStepId: rec.coverageStepId,
+      posterUrl: cloudPoster(rec.artifactId, rec.posterPath),
+      videoUrl: cloudVideo(rec.artifactId, rec.videoPath),
+      adminPath: `/admin/capture/${rec.sessionId}`,
+    });
   }
 
   return hits;

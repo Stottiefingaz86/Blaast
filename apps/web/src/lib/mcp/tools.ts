@@ -235,10 +235,21 @@ export async function callMcpTool(
       platform,
       limit: 20,
     });
+    // Mobbin-style glance: poster still first, video for motion/hover/transition
+    const results = published.map((h) => ({
+      ...h,
+      poster_url: h.posterUrl,
+      video_url: h.videoUrl,
+      glance: h.posterUrl
+        ? "Open poster_url for the still; video_url for animation/hover/transition"
+        : h.videoUrl
+          ? "Poster pending — use video_url"
+          : undefined,
+    }));
     return {
       source: published.length ? "reviewed_captures" : "empty",
-      results: published,
-      count: published.length,
+      results,
+      count: results.length,
       hint: published.length
         ? undefined
         : "No reviewed captures yet. Capture + Approve in /admin — demo catalog is disabled.",
