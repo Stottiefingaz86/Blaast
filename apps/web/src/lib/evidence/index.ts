@@ -281,35 +281,115 @@ export async function getPublishedEvidenceById(
   ]);
   const byId = new Map(operators.map((o) => [o.id, o]));
 
+  // Support element evidence: ev-rec-{sessionId}-{step}#{annotationId}
+  const bareId = evidenceId.split("#")[0]!;
+  const annId = evidenceId.includes("#")
+    ? evidenceId.slice(evidenceId.indexOf("#") + 1)
+    : null;
+
   // ev-rec-{sessionId}-{flowOrStep}
-  const m = /^ev-rec-([0-9a-f-]{36})-(.+)$/i.exec(evidenceId);
+  const m = /^ev-rec-([0-9a-f-]{36})-(.+)$/i.exec(bareId);
   if (!m) return null;
   const sessionId = m[1]!;
   const suffix = m[2]!;
-  const session = sessions.find((s) => s.id === sessionId);
-  if (!session) return null;
-  const op = byId.get(session.operatorId);
-  if (!op) return null;
+  let session = sessions.find((s) => s.id === sessionId) ?? null;
+  let op = session ? byId.get(session.operatorId) : undefined;
 
-  const cov = coverageStepById(suffix);
-  if (cov?.flowId) {
-    const full = await flowEvidenceFromRecording(op, session, {
-      flowId: cov.flowId,
-      baseUrl: origin,
-    });
-    if (full) return full;
+  // Cloud fallback when this host has no local session (Vercel MCP)
+  if (!session) {
+    const { listPublishedClips } = await import("@/lib/evidence/publish");
+    const rows = (await listPublishedClips()).filter(
+      (r) => r.sessionId === sessionId,
+    );
+    if (!rows.length) return null;
+    const host = rows[0]!.operatorHostname;
+    op =
+      operators.find((o) => o.hostname === host) ??
+      ({
+        id: rows[0]!.operatorId,
+        hostname: host,
+        name: rows[0]!.operatorName,
+        url: `https://${host}`,
+        products: ["casino"],
+      } as Operator);
+    session = {
+      id: sessionId,
+      operatorId: op.id,
+      playbookId: "coverage",
+      platform: rows[0]!.platform === "mobile" ? "mobile_web" : "desktop_web",
+      market: rows[0]!.market,
+      status: "review",
+      startedAt: rows[0]!.publishedAt,
+      updatedAt: rows[0]!.publishedAt,
+      items: [],
+      artifacts: rows.map((r) => ({
+        id: r.artifactId,
+        sessionId,
+        coverageStepId: r.coverageStepId,
+        kind: "clip" as const,
+        capturedAt: r.publishedAt,
+        pageUrl: r.pageUrl,
+        videoPath: r.videoPath,
+        posterPath: r.posterPath,
+        structurePath: r.structurePath,
+        sensitiveFlags: [] as string[],
+        reviewStatus: "approved" as const,
+        durationMs: r.durationMs,
+        annotations: r.annotations,
+        clipWindow: r.clipWindow,
+      })),
+    };
   }
+  if (!session || !op) return null;
 
+  // Prefer the *exact* coverage beat (ui-side-nav, scr-casino-lobby, …)
+  // — do NOT expand to the whole journey flow (that lost nav clips).
   const art = session.artifacts?.find(
     (a) =>
       a.reviewStatus === "approved" &&
       (a.coverageStepId === suffix || a.id === suffix),
   );
-  if (!art) {
-    return flowEvidenceFromRecording(op, session, { baseUrl: origin });
+  if (art) {
+    const one: CaptureSession = { ...session, artifacts: [art] };
+    const ev = await flowEvidenceFromRecording(op, one, { baseUrl: origin });
+    if (ev) {
+      ev.evidenceId = `ev-rec-${sessionId}-${art.coverageStepId}`;
+      if (annId) {
+        const ann = art.annotations?.find((a) => a.id === annId);
+        if (ann && ev.steps[0]) {
+          ev.steps[0] = {
+            ...ev.steps[0],
+            label: ann.label || ann.tag,
+            tags: [...new Set([ann.tag, ...ev.steps[0].tags])],
+            layoutNotes: [
+              ...(ev.steps[0].layoutNotes ?? []),
+              ann.region
+                ? `Tagged region ${ann.region.x.toFixed(1)}%,${ann.region.y.toFixed(1)}% ${ann.region.w}×${ann.region.h}%`
+                : `Annotation ${ann.tag}`,
+              ann.posterPath
+                ? `Element still: ${artifactPublicUrl(ann.posterPath) ?? ann.posterPath}`
+                : "",
+            ].filter(Boolean),
+          };
+          ev.evidenceId = `${ev.evidenceId}#${annId}`;
+        }
+      }
+    }
+    return ev;
   }
-  const one: CaptureSession = { ...session, artifacts: [art] };
-  return flowEvidenceFromRecording(op, one, { baseUrl: origin });
+
+  // Journey-level id (home_tour, casino_browse, …)
+  const cov = coverageStepById(suffix);
+  if (cov?.flowId || /_tour$|_browse$|_bet$|deposit|onboarding/i.test(suffix)) {
+    const flowKey = cov?.flowId ?? suffix;
+    const full = await flowEvidenceFromRecording(op, session, {
+      flowId: flowKey,
+      baseUrl: origin,
+    });
+    if (full) return full;
+  }
+
+  return flowEvidenceFromRecording(op, session, { baseUrl: origin });
 }
 
 export async function getPublishedFlowEvidence(

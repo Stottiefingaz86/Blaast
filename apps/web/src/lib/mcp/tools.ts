@@ -80,7 +80,7 @@ export const MCP_TOOLS = [
   {
     name: "get_evidence",
     description:
-      "Load full evidence for an evidence_id or flow_id: steps, measured regions, motion, media URLs, agent replicate prompt.",
+      "Load full evidence for an evidence_id or flow_id: steps, measured regions, motion, media URLs, agent replicate prompt. Pass the exact beat id (e.g. …-ui-side-nav / …-scr-casino-lobby) — do not use a journey umbrella when rebuilding chrome.",
     inputSchema: {
       type: "object",
       properties: {
