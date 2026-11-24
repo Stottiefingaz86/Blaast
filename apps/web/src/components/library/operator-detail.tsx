@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { CaptureMedia } from "@/components/library/capture-media";
 import { ElementPromptModal } from "@/components/library/element-prompt-modal";
+import { EmailTracker } from "@/components/library/email-tracker";
 import { FlowStepCarousel } from "@/components/library/flow-step-carousel";
 import {
   LobbyTrimModal,
@@ -913,66 +914,15 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
           ))}
 
         {!missingPlatform && tab === "emails" && (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {brandEmails.length === 0 ? (
-              <p className="col-span-full py-16 text-center text-[14px] text-neutral-500">
-                No research emails for this brand yet. Sign up with the research
-                inbox alias, then sync CRM mail.
-              </p>
-            ) : (
-              brandEmails.map((mail) => (
-                <button
-                  key={mail.id}
-                  type="button"
-                  onClick={() => setEmailOpen(mail)}
-                  className="group text-left"
-                >
-                  <div className="lib-card overflow-hidden rounded-[28px] p-4 sm:p-5">
-                    <span className="mb-3 inline-flex rounded-full bg-white/10 px-2 py-0.5 text-[10px] capitalize text-neutral-200">
-                      {mail.category.replace(/_/g, " ")}
-                    </span>
-                    <div className="aspect-[16/10] overflow-hidden rounded-2xl bg-[#E9EAEE] ring-1 ring-white/10">
-                      {mail.html ? (
-                        <iframe
-                          title={mail.subject}
-                          sandbox=""
-                          srcDoc={mail.html}
-                          className="pointer-events-none h-[200%] w-[200%] origin-top-left scale-50 bg-white"
-                        />
-                      ) : mail.posterUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          alt=""
-                          src={mail.posterUrl}
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center bg-neutral-900 text-[12px] text-white/40">
-                          Email
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-2.5 px-0.5">
-                    <p className="truncate text-[13px] font-medium text-white">
-                      {mail.category === "verify"
-                        ? "Verify email"
-                        : mail.category === "welcome"
-                          ? "Welcome email"
-                          : mail.subject}
-                    </p>
-                    <p className="truncate text-[12px] text-neutral-500">
-                      {mail.subject}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-neutral-600">
-                      {new Date(mail.receivedAt).toLocaleString()} · {mail.from}
-                    </p>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
+          <EmailTracker
+            emails={brandEmails}
+            operatorName={operator.name}
+            slug={operator.slug}
+            hostname={operator.hostname}
+            logoUrl={operator.logoUrl}
+            variant="library"
+            onOpen={setEmailOpen}
+          />
         )}
 
         {!missingPlatform && tab === "flows" && (
