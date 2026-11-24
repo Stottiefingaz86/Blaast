@@ -271,13 +271,28 @@ export async function resolveFlowEvidence(
   return loadDemoFlowEvidence(flowId);
 }
 
+function slugKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/^www\./, "")
+    .replace(/\./g, "-")
+    .replace(/[^a-z0-9-]+/g, "");
+}
+
 export async function getOperatorPublishedSummary(
   slug: string,
   origin: string,
 ) {
-  const hits = (await listPublishedHits(origin)).filter(
-    (h) => h.operatorSlug === slug || h.operator.toLowerCase() === slug.toLowerCase(),
-  );
+  const want = slugKey(slug);
+  const hits = (await listPublishedHits(origin)).filter((h) => {
+    const keys = [
+      slugKey(h.operatorSlug),
+      slugKey(h.operator),
+      // hostname stored as operatorSlug (whale.io) vs catalog slug (whale-io)
+      slugKey(h.operatorSlug.replace(/\./g, "-")),
+    ];
+    return keys.some((k) => k === want || k.startsWith(want) || want.startsWith(k));
+  });
   return {
     slug,
     published_count: hits.length,

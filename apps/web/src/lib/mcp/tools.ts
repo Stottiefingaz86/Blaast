@@ -378,9 +378,44 @@ export async function callMcpTool(
       };
     }
 
+    // Library catalog flows (e.g. whale-io-brand-journey)
+    const { getPublishedFlow } = await import("@/lib/library/published-catalog");
+    const lib = await getPublishedFlow(id, origin);
+    if (lib) {
+      const { operator, flow } = lib;
+      return {
+        source: "published_catalog",
+        operator: operator.name,
+        flow_id: flow.id,
+        name: flow.name,
+        group: flow.group,
+        tags: [],
+        actions: flow.actions,
+        steps: flow.steps.map((s) => ({
+          id: s.id,
+          label: s.label,
+          kind: s.kind,
+          tags: s.tags ?? [],
+          evidence_id: s.evidenceId,
+          has_structure: Boolean(s.region),
+          has_motion: Boolean(s.videoUrl),
+          media: [
+            s.posterUrl ? { kind: "poster", url: s.posterUrl } : null,
+            s.videoUrl ? { kind: "video", url: s.videoUrl } : null,
+          ].filter(Boolean),
+          clipWindow: s.clipWindow,
+        })),
+        url: `${origin}/operators/${operator.slug}?tab=flows&flow=${encodeURIComponent(flow.id)}`,
+        agent_prompt: null,
+        prompt_source: null,
+        evidence_id: flow.steps.find((s) => s.evidenceId)?.evidenceId ?? null,
+        citations: [],
+      };
+    }
+
     return {
       error: `Unknown flow_id: ${id}`,
-      hint: "Use search_flows / search_ui on reviewed captures. Demo catalog is disabled.",
+      hint: "Use search_flows / get_operator.flows, or a brand-journey id like whale-io-brand-journey.",
     };
   }
 
@@ -398,11 +433,14 @@ export async function callMcpTool(
     if (!byHost && !published.published_count) {
       return { error: `Unknown operator: ${slug}` };
     }
+    const catalogBeats =
+      (byHost?.screens.length ?? 0) + (byHost?.uiElements.length ?? 0);
     return {
       slug: byHost?.slug ?? slug,
       name: byHost?.name ?? published.beats[0]?.operator ?? slug,
       logo_url: byHost?.logoUrl,
-      published_captures: published.published_count,
+      // Prefer evidence-index count; fall back to catalog screen+UI counts
+      published_captures: published.published_count || catalogBeats,
       published_beats: published.beats,
       screens: byHost?.screens ?? [],
       ui_elements: byHost?.uiElements ?? [],
@@ -412,6 +450,7 @@ export async function callMcpTool(
         group: f.group,
         steps: f.steps.length,
       })),
+      emails: byHost?.emails?.length ?? 0,
       url: byHost ? `${origin}/operators/${byHost.slug}` : undefined,
     };
   }
