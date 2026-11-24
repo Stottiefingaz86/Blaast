@@ -22,7 +22,7 @@ export const MCP_TOOLS = [
   {
     name: "search_screens",
     description:
-      "Search operator UI screens / coverage beats by product, market, journey, or pattern (betslip, deposit, lobby, loader, etc.). Prefers reviewed captures with structure.",
+      "Search operator UI screens / coverage beats by product, market, journey, or pattern (betslip, deposit, lobby, loader, etc.). Returns a Mobbin-style inline poster gallery (images in chat) plus video_url for motion/hover. Prefers reviewed captures with structure.",
     inputSchema: {
       type: "object",
       properties: {
@@ -51,7 +51,7 @@ export const MCP_TOOLS = [
   {
     name: "search_ui",
     description:
-      "Search UI elements by tag (loader, skeleton, odds_button, side_nav, search, …). Returns media + structure flags.",
+      "Search UI elements by tag (loader, skeleton, odds_button, side_nav, search, …). Returns inline poster gallery + video_url + structure flags.",
     inputSchema: {
       type: "object",
       properties: {

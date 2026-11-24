@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callMcpTool, MCP_TOOLS } from "@/lib/mcp/tools";
+import {
+  buildVisualSearchContent,
+  hitsFromToolPayload,
+} from "@/lib/mcp/visual";
 import { trackEvent } from "@/lib/platform/analytics-store";
 import { userIdFromRequestCookie } from "@/lib/platform/auth";
 import { planAllowsMcp } from "@/lib/platform/plans";
 import { getUserById, markMcpActivated } from "@/lib/platform/users-store";
+
+/** Tools that return Mobbin-style inline screen galleries */
+const VISUAL_TOOLS = new Set([
+  "search_screens",
+  "search_ui",
+  "get_motion",
+  "search_flows",
+  "get_operator",
+]);
 
 const MCP_UPGRADE_MESSAGE =
   "Your plan is Free — upgrade to Pro to use MCP prompts and connect agents.";
@@ -145,6 +158,19 @@ export async function POST(req: NextRequest) {
         brand: brand ?? name,
         tool: name,
       });
+    }
+
+    if (!isErr && VISUAL_TOOLS.has(name)) {
+      const hits = hitsFromToolPayload(data);
+      if (hits.some((h) => h.posterUrl || h.poster_url)) {
+        const content = await buildVisualSearchContent({
+          tool: name,
+          query: typeof args.query === "string" ? args.query : String(args.slug ?? ""),
+          hits,
+          payload: data,
+        });
+        return rpcResult(id, { content, isError: false });
+      }
     }
 
     return rpcResult(id, {
