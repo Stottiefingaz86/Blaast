@@ -78,12 +78,12 @@ function ResearchBody() {
               Research
             </p>
             <h1 className="mt-3 text-[28px] font-semibold tracking-tight text-white">
-              Email Tracker &amp; audits
+              Research
             </h1>
             <p className="mt-3 text-[15px] leading-relaxed text-neutral-400">
-              Deploy from a brand&apos;s Emails tab to review the lifecycle
-              timeline here in more detail. Journey audits and CX benchmarks
-              land next.
+              Open a brand&apos;s Emails tab, then use Open in Research for the
+              fuller lifecycle timeline. Journey audits and CX benchmarks land
+              next.
             </p>
             <Link
               href="/library"

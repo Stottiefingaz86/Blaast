@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
-import {
-  Check,
-  Copy,
-  ExternalLink,
-  ImageIcon,
-  Mail,
-  Rocket,
-} from "lucide-react";
+import { Check, Copy, ImageIcon } from "lucide-react";
 import type { CatalogEmail } from "@/lib/library/catalog";
 import { copyImageAsPng } from "@/lib/library/media-actions";
 import { cn } from "@/lib/utils";
@@ -25,12 +18,12 @@ export function researchAliasFor(slug: string, hostname?: string) {
 }
 
 function categoryLabel(category: string) {
-  if (category === "verify") return "Verify email";
-  if (category === "welcome") return "Welcome email";
-  if (category === "bonus") return "Bonus email";
-  if (category === "deposit_nudge") return "Deposit email";
-  if (category === "vip") return "VIP email";
-  if (category === "reactivation") return "Reactivation email";
+  if (category === "verify") return "Verify";
+  if (category === "welcome") return "Welcome";
+  if (category === "bonus") return "Bonus";
+  if (category === "deposit_nudge") return "Deposit";
+  if (category === "vip") return "VIP";
+  if (category === "reactivation") return "Reactivation";
   return category.replace(/_/g, " ");
 }
 
@@ -38,7 +31,7 @@ function formatClock(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleTimeString(undefined, {
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
   });
 }
@@ -47,10 +40,9 @@ function formatDay(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "Unknown date";
   return d.toLocaleDateString(undefined, {
-    weekday: "short",
+    weekday: "long",
     month: "short",
     day: "numeric",
-    year: "numeric",
   });
 }
 
@@ -66,14 +58,13 @@ type Props = {
   slug: string;
   hostname?: string;
   logoUrl?: string;
-  /** Library tab = compact; Research = roomier detail */
   variant?: "library" | "research";
   onOpen?: (mail: CatalogEmail) => void;
 };
 
 /**
- * CRM lifecycle Email Tracker — chronological arrivals with copy / deploy.
- * Research surface reuses the same component for deeper review later.
+ * Lifecycle email timeline — arrivals by time, preview + copy image.
+ * Fuller CRM review lives under Research (quiet link, not a fake “Deploy”).
  */
 export function EmailTracker({
   emails,
@@ -87,7 +78,6 @@ export function EmailTracker({
   const [toast, setToast] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const alias = researchAliasFor(slug, hostname);
-  const researchHref = `/research?operator=${encodeURIComponent(slug)}`;
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -150,207 +140,154 @@ export function EmailTracker({
   }, [alias, showToast]);
 
   return (
-    <div className={cn("w-full", variant === "research" && "max-w-3xl")}>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+    <div
+      className={cn(
+        "mx-auto w-full",
+        variant === "research" ? "max-w-2xl" : "max-w-3xl",
+      )}
+    >
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoUrl}
-                alt=""
-                className="size-7 rounded-lg bg-white object-contain p-0.5"
-              />
-            ) : (
-              <span className="flex size-7 items-center justify-center rounded-lg bg-white/10">
-                <Mail className="size-3.5 text-white" />
-              </span>
-            )}
-            <div>
-              <h2 className="text-[15px] font-semibold text-white">
-                Email Tracker
-              </h2>
-              <p className="text-[12px] text-neutral-500">
-                {operatorName} · research inbox timeline
-              </p>
-            </div>
-          </div>
+          <p className="text-[12px] text-neutral-500">
+            {ordered.length} email{ordered.length === 1 ? "" : "s"} · {operatorName}
+          </p>
           <button
             type="button"
             onClick={() => void copyAlias()}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] text-neutral-400 hover:bg-white/[0.1] hover:text-white"
+            className="mt-1.5 inline-flex max-w-full items-center gap-1.5 text-[12px] text-neutral-400 transition hover:text-white"
             title="Copy research alias"
           >
-            <Copy className="size-3" />
-            {alias}
+            <Copy className="size-3 shrink-0 opacity-60" />
+            <span className="truncate">{alias}</span>
           </button>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-3">
           {toast && (
-            <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white/[0.1] px-3 text-[12px] font-medium text-white">
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-neutral-300">
               <Check className="size-3.5" />
               {toast}
             </span>
           )}
           {variant === "library" ? (
             <Link
-              href={researchHref}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[12px] font-semibold text-neutral-950 hover:bg-white/90"
+              href={`/research?operator=${encodeURIComponent(slug)}`}
+              className="text-[12px] text-neutral-500 underline-offset-2 hover:text-white hover:underline"
             >
-              <Rocket className="size-3.5" strokeWidth={1.75} />
-              Deploy
+              Open in Research
             </Link>
           ) : (
             <Link
               href={`/operators/${slug}?tab=emails`}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/15 px-4 text-[12px] font-medium text-white hover:bg-white/[0.06]"
+              className="text-[12px] text-neutral-500 underline-offset-2 hover:text-white hover:underline"
             >
-              <ExternalLink className="size-3.5" />
-              Open in Library
+              Back to Library
             </Link>
           )}
         </div>
       </div>
 
       {ordered.length === 0 ? (
-        <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-14 text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-white/[0.06]">
-            <Mail className="size-5 text-neutral-400" />
-          </div>
-          <p className="text-[15px] font-medium text-white">
-            Waiting for research mail
+        <div className="py-16 text-center">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt=""
+              className="mx-auto size-10 rounded-xl bg-white object-contain p-1"
+            />
+          ) : null}
+          <p className="mt-4 text-[15px] font-medium text-white">
+            No emails yet
           </p>
-          <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-neutral-500">
-            Sign up on {operatorName} with{" "}
-            <span className="text-neutral-300">{alias}</span>. Arrivals land on
-            this timeline with time stamps. Deploy opens the fuller Research
-            view.
+          <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-neutral-500">
+            Sign up on {operatorName} with the research alias. Messages show
+            here in order with the time they arrived.
           </p>
-          <div className="relative mx-auto mt-10 max-w-sm">
-            <div className="absolute top-2 bottom-2 left-[19px] w-px bg-white/10" />
-            {["Sign up", "Verify email", "Welcome"].map((label, i) => (
-              <div key={label} className="relative flex gap-4 pb-6 last:pb-0">
-                <span className="relative z-10 mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#1a1a1a] text-[11px] text-neutral-500">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <div className="min-w-0 flex-1 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-                  <p className="text-[13px] text-neutral-400">{label}</p>
-                  <p className="mt-0.5 text-[11px] text-neutral-600">
-                    Pending · —:—
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-10">
           {byDay.map(([day, dayMails]) => (
             <section key={day}>
-              <p className="mb-4 text-[11px] font-medium tracking-wide text-neutral-500 uppercase">
+              <p className="mb-5 text-[12px] text-neutral-500">
                 {formatDay(dayMails[0]!.receivedAt)}
               </p>
-              <ol className="relative space-y-0">
-                <div className="absolute top-3 bottom-3 left-[19px] w-px bg-white/10" />
-                {dayMails.map((mail, i) => (
-                  <li key={mail.id} className="relative flex gap-4 pb-6 last:pb-0">
-                    <div className="relative z-10 flex w-10 shrink-0 flex-col items-center">
-                      <span
-                        className={cn(
-                          "flex size-10 items-center justify-center rounded-full border bg-[#1a1a1a] text-[10px] font-semibold tabular-nums",
-                          i === dayMails.length - 1
-                            ? "border-white/30 text-white"
-                            : "border-white/10 text-neutral-400",
-                        )}
-                      >
-                        {formatClock(mail.receivedAt)}
-                      </span>
+              <ol className="relative">
+                <div
+                  aria-hidden
+                  className="absolute top-2 bottom-2 left-[5px] w-px bg-white/[0.08]"
+                />
+                {dayMails.map((mail) => (
+                  <li key={mail.id} className="relative flex gap-5 pb-8 last:pb-0">
+                    <div className="relative z-10 mt-1.5 flex w-3 shrink-0 justify-center">
+                      <span className="size-2.5 rounded-full bg-white ring-4 ring-[#111]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="overflow-hidden rounded-[22px] border border-white/[0.08] bg-white/[0.03]">
+                      <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-[13px] font-medium tabular-nums text-white">
+                          {formatClock(mail.receivedAt)}
+                        </span>
+                        <span className="text-[12px] text-neutral-500">
+                          {categoryLabel(mail.category)}
+                        </span>
+                        <span className="truncate text-[12px] text-neutral-600">
+                          {mail.from}
+                        </span>
+                      </div>
+                      <p className="mb-3 text-[14px] font-medium text-neutral-200">
+                        {mail.subject}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onOpen?.(mail)}
+                        className="group block w-full overflow-hidden rounded-2xl bg-[#E9EAEE] text-left ring-1 ring-white/10 transition hover:ring-white/25"
+                      >
+                        <div
+                          className={cn(
+                            "overflow-hidden",
+                            variant === "research"
+                              ? "aspect-[16/10]"
+                              : "aspect-[16/10] max-h-[220px]",
+                          )}
+                        >
+                          {mail.html ? (
+                            <iframe
+                              title={mail.subject}
+                              sandbox=""
+                              srcDoc={mail.html}
+                              className="pointer-events-none h-[200%] w-[200%] origin-top-left scale-50 bg-white"
+                            />
+                          ) : mail.posterUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              alt=""
+                              src={mail.posterUrl}
+                              loading="lazy"
+                              className="h-full w-full object-cover object-top"
+                            />
+                          ) : (
+                            <div className="flex h-full min-h-[120px] items-center justify-center bg-neutral-200 text-[12px] text-neutral-500">
+                              No preview
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                      <div className="mt-2.5 flex items-center gap-3">
+                        <button
+                          type="button"
+                          disabled={!mail.posterUrl || busyId === mail.id}
+                          onClick={() => void copyImage(mail)}
+                          className="inline-flex items-center gap-1.5 text-[12px] text-neutral-400 transition hover:text-white disabled:opacity-40"
+                        >
+                          <ImageIcon className="size-3.5" strokeWidth={1.75} />
+                          {busyId === mail.id ? "Copying…" : "Copy image"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => onOpen?.(mail)}
-                          className="block w-full text-left outline-none transition hover:bg-white/[0.03]"
+                          className="text-[12px] text-neutral-400 transition hover:text-white"
                         >
-                          <div className="flex flex-wrap items-center gap-2 px-4 pt-3.5">
-                            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] capitalize text-neutral-200">
-                              {categoryLabel(mail.category)}
-                            </span>
-                            <span className="text-[11px] text-neutral-600">
-                              {new Date(mail.receivedAt).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="px-4 pt-2 pb-3">
-                            <p className="truncate text-[14px] font-medium text-white">
-                              {mail.subject}
-                            </p>
-                            <p className="mt-0.5 truncate text-[12px] text-neutral-500">
-                              {mail.from}
-                            </p>
-                            {mail.snippet && variant === "research" && (
-                              <p className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-neutral-400">
-                                {mail.snippet.replace(/<[^>]+>/g, " ")}
-                              </p>
-                            )}
-                          </div>
-                          <div
-                            className={cn(
-                              "mx-4 mb-3 overflow-hidden rounded-xl bg-[#E9EAEE] ring-1 ring-white/10",
-                              variant === "research"
-                                ? "aspect-[16/9]"
-                                : "aspect-[16/10] max-h-[200px]",
-                            )}
-                          >
-                            {mail.html ? (
-                              <iframe
-                                title={mail.subject}
-                                sandbox=""
-                                srcDoc={mail.html}
-                                className="pointer-events-none h-[200%] w-[200%] origin-top-left scale-50 bg-white"
-                              />
-                            ) : mail.posterUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                alt=""
-                                src={mail.posterUrl}
-                                loading="lazy"
-                                className="h-full w-full object-cover object-top"
-                              />
-                            ) : (
-                              <div className="flex h-full items-center justify-center bg-neutral-900 text-[12px] text-white/40">
-                                Email
-                              </div>
-                            )}
-                          </div>
+                          Open
                         </button>
-                        <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.06] px-3 py-2.5">
-                          <button
-                            type="button"
-                            disabled={!mail.posterUrl || busyId === mail.id}
-                            onClick={() => void copyImage(mail)}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white/[0.08] px-3 text-[11px] font-medium text-white hover:bg-white/[0.12] disabled:opacity-40"
-                          >
-                            <ImageIcon className="size-3.5" strokeWidth={1.75} />
-                            {busyId === mail.id ? "Copying…" : "Copy image"}
-                          </button>
-                          {variant === "library" ? (
-                            <Link
-                              href={`${researchHref}&email=${encodeURIComponent(mail.id)}`}
-                              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-[11px] font-semibold text-neutral-950 hover:bg-white/90"
-                            >
-                              <Rocket className="size-3.5" strokeWidth={1.75} />
-                              Deploy
-                            </Link>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => onOpen?.(mail)}
-                            className="ml-auto text-[11px] text-neutral-500 hover:text-white"
-                          >
-                            Open
-                          </button>
-                        </div>
                       </div>
                     </div>
                   </li>
