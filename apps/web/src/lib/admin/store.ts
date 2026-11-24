@@ -337,8 +337,12 @@ export async function updateSessionItem(
   patch: Partial<CaptureSession["items"][number]>,
 ) {
   const store = await ensureStore();
-  const session = store.sessions.find((s) => s.id === sessionId);
-  if (!session) return null;
+  let session = store.sessions.find((s) => s.id === sessionId);
+  if (!session) {
+    const hydrated = await getSession(sessionId);
+    if (!hydrated) return null;
+    session = store.sessions.find((s) => s.id === sessionId) ?? hydrated;
+  }
   const item = session.items.find((i) => i.playbookItemId === playbookItemId);
   if (!item) return null;
   Object.assign(item, patch);
@@ -552,10 +556,19 @@ export async function saveRecordingArtifact(input: {
     item.completedAt = new Date().toISOString();
   }
 
-  // Advance guide to next todo step
-  const nextTodo = session.items.find((i) => i.status === "todo");
+  // Always move forward from the step just captured — never jump back to
+  // earlier skipped/undone beats (researcher skipped them on purpose).
+  const idx = session.items.findIndex(
+    (i) => i.playbookItemId === input.coverageStepId,
+  );
+  const nextForward =
+    idx >= 0
+      ? session.items.slice(idx + 1).find((i) => i.status === "todo") ??
+        session.items[idx + 1]
+      : undefined;
   session.guide = {
-    currentStepId: nextTodo?.playbookItemId ?? input.coverageStepId,
+    currentStepId:
+      nextForward?.playbookItemId ?? input.coverageStepId,
     phase: "idle",
     commandSeq: (session.guide?.commandSeq ?? 0) + 1,
   };

@@ -575,9 +575,12 @@ export function CaptureStage({
           ? "Clip saved — next Record reuses this window"
           : "Clip saved — open it to tag sections",
       );
+      const forward =
+        coverageSteps[stepIndex + 1]?.id ??
+        (data.session as CaptureSession).guide?.currentStepId ??
+        step.id;
       await patchGuide({
-        currentStepId:
-          (data.session as CaptureSession).guide?.currentStepId ?? step.id,
+        currentStepId: forward,
         phase: "idle",
         recordingStartedAt: null,
       });
@@ -655,8 +658,49 @@ export function CaptureStage({
     setCommentOpen(false);
   }
 
+  async function markSkippedBetween(fromId: string | undefined, toId: string) {
+    if (!fromId || fromId === toId) return;
+    const fromIdx = coverageSteps.findIndex((s) => s.id === fromId);
+    const toIdx = coverageSteps.findIndex((s) => s.id === toId);
+    if (fromIdx < 0 || toIdx < 0 || toIdx <= fromIdx) return;
+    const items = session.items ?? [];
+    for (const s of coverageSteps.slice(fromIdx, toIdx)) {
+      const row = items.find((i) => i.playbookItemId === s.id);
+      if (row && row.status === "todo") {
+        await fetch(`/api/admin/sessions/${session.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playbookItemId: s.id,
+            itemStatus: "skipped",
+          }),
+        });
+      }
+    }
+  }
+
   async function goToStep(id: string) {
     if (recording || busy) return;
+    const leavingId = session.guide?.currentStepId ?? step?.id;
+    // Moving forward past unfinished optionals = intentional skip
+    if (leavingId && leavingId !== id) {
+      await markSkippedBetween(leavingId, id);
+      const leaving = (session.items ?? []).find(
+        (i) => i.playbookItemId === leavingId,
+      );
+      const leavingIdx = coverageSteps.findIndex((s) => s.id === leavingId);
+      const toIdx = coverageSteps.findIndex((s) => s.id === id);
+      if (leaving?.status === "todo" && toIdx > leavingIdx) {
+        await fetch(`/api/admin/sessions/${session.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playbookItemId: leavingId,
+            itemStatus: "skipped",
+          }),
+        });
+      }
+    }
     const res = await fetch(`/api/admin/sessions/${session.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -686,12 +730,7 @@ export function CaptureStage({
   }
 
   async function goNext() {
-    // Prefer next required journey step; fall back to any following beat
-    if (primaryIndex >= 0 && primaryIndex < primarySteps.length - 1) {
-      const next = primarySteps[primaryIndex + 1];
-      if (next) await goToStep(next.id);
-      return;
-    }
+    // Strict forward in checklist order — never jump back to unfinished earlier steps
     const next = coverageSteps[stepIndex + 1];
     if (next) await goToStep(next.id);
   }
