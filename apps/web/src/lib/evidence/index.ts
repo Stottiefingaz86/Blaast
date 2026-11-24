@@ -295,34 +295,29 @@ export async function getPublishedEvidenceById(
   let session = sessions.find((s) => s.id === sessionId) ?? null;
   let op = session ? byId.get(session.operatorId) : undefined;
 
-  // Cloud fallback when this host has no local session (Vercel MCP)
-  if (!session) {
+  // Always merge published cloud clips for this session.
+  // Local session JSON on Vercel is often stale (missing later-approved
+  // ui-side-nav / ui-tab-bar) — without merge, exact-beat lookup fails and
+  // we wrongly expand to a whole journey (e.g. first_deposit).
+  {
     const { listPublishedClips } = await import("@/lib/evidence/publish");
     const rows = (await listPublishedClips()).filter(
       (r) => r.sessionId === sessionId,
     );
-    if (!rows.length) return null;
-    const host = rows[0]!.operatorHostname;
-    op =
-      operators.find((o) => o.hostname === host) ??
-      ({
-        id: rows[0]!.operatorId,
-        hostname: host,
-        name: rows[0]!.operatorName,
-        url: `https://${host}`,
-        products: ["casino"],
-      } as Operator);
-    session = {
-      id: sessionId,
-      operatorId: op.id,
-      playbookId: "coverage",
-      platform: rows[0]!.platform === "mobile" ? "mobile_web" : "desktop_web",
-      market: rows[0]!.market,
-      status: "review",
-      startedAt: rows[0]!.publishedAt,
-      updatedAt: rows[0]!.publishedAt,
-      items: [],
-      artifacts: rows.map((r) => ({
+    if (rows.length) {
+      const host = rows[0]!.operatorHostname;
+      if (!op) {
+        op =
+          operators.find((o) => o.hostname === host) ??
+          ({
+            id: rows[0]!.operatorId,
+            hostname: host,
+            name: rows[0]!.operatorName,
+            url: `https://${host}`,
+            products: ["casino"],
+          } as Operator);
+      }
+      const cloudArts = rows.map((r) => ({
         id: r.artifactId,
         sessionId,
         coverageStepId: r.coverageStepId,
@@ -337,8 +332,40 @@ export async function getPublishedEvidenceById(
         durationMs: r.durationMs,
         annotations: r.annotations,
         clipWindow: r.clipWindow,
-      })),
-    };
+      }));
+      if (!session) {
+        session = {
+          id: sessionId,
+          operatorId: op.id,
+          playbookId: "coverage",
+          platform: rows[0]!.platform === "mobile" ? "mobile_web" : "desktop_web",
+          market: rows[0]!.market,
+          status: "review",
+          startedAt: rows[0]!.publishedAt,
+          updatedAt: rows[0]!.publishedAt,
+          items: [],
+          artifacts: cloudArts,
+        };
+      } else {
+        const byId = new Map(
+          (session.artifacts ?? []).map((a) => [a.id, a]),
+        );
+        for (const a of cloudArts) byId.set(a.id, a);
+        // Prefer cloud coverageStepId when local lacked approval
+        for (const a of cloudArts) {
+          const local = [...byId.values()].find(
+            (x) => x.coverageStepId === a.coverageStepId && x.id !== a.id,
+          );
+          if (local && local.reviewStatus !== "approved") {
+            byId.delete(local.id);
+          }
+        }
+        session = {
+          ...session,
+          artifacts: [...byId.values()],
+        };
+      }
+    }
   }
   if (!session || !op) return null;
 

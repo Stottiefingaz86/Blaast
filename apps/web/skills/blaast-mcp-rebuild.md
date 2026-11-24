@@ -1,34 +1,26 @@
----
-name: blaast-mcp-rebuild
-description: Rebuild operator shells and flows from Blaast MCP evidence with exact layout fidelity. Use when implementing /blaast-test, mimicking Stake/Whale/etc chrome, or any MCP-driven UI rebuild.
----
-
 # Blaast MCP rebuild (exact chrome)
 
-## Non-negotiable workflow
+## Where fidelity fails (measured)
 
-1. Call Blaast MCP `search_ui` / `search_screens` for the operator + component (e.g. `stake side_nav`).
-2. **Open and visually inspect** every returned poster image (and video when motion/hover matters). Do not rebuild from memory or web search.
-3. Call `get_evidence` with the **exact** `evidenceId` from the hit (e.g. `…-ui-side-nav`), not a journey umbrella.
-4. Sample colors from the poster when possible; prefer measured hex over guessed Stake tokens.
-5. Rebuild IA, spacing, active/hover states from what you see. Cite evidence IDs in code comments.
+1. **`get_evidence` must return the exact beat** (`…-ui-side-nav`, `…-ui-tab-bar`). If it returns a journey (`first_deposit`) the agent never sees nav media — that was a real bug (stale local session + journey fallback). Fix: merge cloud published clips before beat lookup.
+2. **Video “motion analysis” is scene-cut detection**, not hover/CSS. For hovers: open `video_url`, scrub frames, sample row colours. Do not invent `#2f4553` from memory.
+3. **Skills help process, not measurement.** A skill cannot replace opening posters. Add/use this skill so agents always: search → exact evidence_id → open still → sample → code.
+4. **Two Stake nav states in one session.** `ui-side-nav` t0 ≈ global drawer (Casino/Sports/Rewards/Inside Stake). Mid frames / lobby ≈ nested **My Casino**. Match the frame the user pointed at; do not mix states.
 
-## What “close” means on `/blaast-test`
+## Required MCP sequence
 
-- Match chrome (header + side nav + product rail) as closely as the stills allow.
-- Empty main is OK when the task is shell-only.
-- Do **not** invent old Stake layouts. Prefer the newest library still for that beat.
-- Use Blaast wordmark, not competitor logos.
+```
+search_ui operator=stake query="side nav"
+→ evidenceId …-ui-side-nav
+get_evidence evidence_id=<that exact id>
+→ confirm evidence.evidenceId ends with ui-side-nav (NOT first_deposit / home_tour)
+→ open poster_url + video_url; sample colours from stills
+```
 
-## Video / motion
+## Sandbox `/blaast-test`
 
-- Poster = layout ground truth.
-- Video = hover, expand/collapse, scroll, loaders, transitions.
-- If structure JSON has `motion.animations` / scene cuts, use those timings.
-- If structure is missing, say so — do not invent easing.
+Empty middle. Chrome only. Colours from library stills. Cite artifact ids in a code comment.
 
-## Anti-patterns
+## Not Mobbin
 
-- Rebuilding from Mobbin or training memory while Blaast clips exist.
-- Calling `get_evidence` for a journey and ignoring the specific nav beat.
-- Treating ffmpeg scene-detect alone as “hover analysis.”
+Never use Mobbin for Blaast rebuilds.

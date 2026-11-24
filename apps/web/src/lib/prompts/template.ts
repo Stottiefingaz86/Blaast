@@ -66,10 +66,19 @@ ${motion || "   - none detected"}`;
     })
     .join("\n\n");
 
-  const prompt = `Use **Blaast MCP** to load measured evidence, then rebuild this journey in **our** brand and design system.
+  const isChromeBeat = /ui-side-nav|ui-tab-bar|ui-header|scr-casino-lobby/i.test(
+    evidence.evidenceId,
+  );
 
-## Task
-Mimic interaction, information architecture, carousel/lobby behaviour, content order, and motion (if measured) — **not** a pixel clone of the competitor brand.
+  const taskBlock = isChromeBeat
+    ? `## Task
+**Exact chrome fidelity.** Match layout, colours, spacing, hover/active states, and IA from the measured stills/video for this beat. Open poster_url / video_url and crop regions before coding. Do not approximate from memory or a different operator. For production customer rebuilds, swap brand tokens after the structure matches.`
+    : `## Task
+Mimic interaction, information architecture, carousel/lobby behaviour, content order, and motion (if measured). Prefer measured regions over memory. Do not copy logos/trademarks into customer production builds.`;
+
+  const prompt = `Use **Blaast MCP** to load measured evidence, then rebuild from the attached media.
+
+${taskBlock}
 
 ## Reference IDs (pass these to MCP)
 - Evidence ID: \`${evidence.evidenceId}\`

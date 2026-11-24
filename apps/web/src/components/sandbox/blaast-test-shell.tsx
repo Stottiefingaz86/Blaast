@@ -1,46 +1,45 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import Link from "next/link";
 import {
-  Bell,
   ChevronDown,
   ChevronLeft,
   CircleHelp,
+  ExternalLink,
   Flame,
-  FolderHeart,
+  Gift,
   Globe,
+  Handshake,
   Heart,
   Home,
   Lightbulb,
   ListChecks,
   Menu,
   Monitor,
-  PanelRight,
+  Newspaper,
   Play,
-  Search,
+  ShieldCheck,
   Sparkles,
+  Trophy,
   User,
-  Wallet,
 } from "lucide-react";
 
 /**
- * Exact chrome rebuild from Blaast library stills (not memory / web).
- * Evidence:
- *   lobby 9ac80c76… + side crop …-side_nav.png + header crop
- *   ui-side-nav 23efa99e… · ui-tab-bar 5e71bebc…
- * Measured page bg #12171a · side #191f24 · active #212a2f · muted #b1bad3
+ * Exact chrome from Blaast Stake clips (not memory):
+ *   ui-side-nav 23efa99e… · ui-tab-bar 5e71bebc… · lobby mid-frames
+ * Measured: page #12171a · side #191f24 · row hover/active #212a2f–#25292f
+ *           muted #b1bad3 · register #1475e1 · header icons in pill #191f24
  */
 
 const S = {
   bg: "#12171a",
   side: "#191f24",
-  active: "#212a2f",
-  hover: "#222b30",
-  chrome: "#39464c",
+  row: "#212a2f",
+  hover: "#25292f",
   muted: "#b1bad3",
   text: "#ffffff",
   blue: "#1475e1",
+  signIn: "#2f3a40",
 } as const;
 
 const MY_CASINO = [
@@ -62,186 +61,261 @@ const GAMES = [
   { id: "live", label: "Live Casino", icon: User },
 ] as const;
 
+/** Global drawer (first frames of side_nav clip) */
+const GLOBAL_PRIMARY = [
+  { id: "g-casino", label: "Casino", icon: "casino" as const, chevron: true },
+  { id: "g-sports", label: "Sports", icon: "ball" as const, chevron: true },
+] as const;
+
+const REWARDS = [
+  { id: "promo", label: "Promotions", icon: Gift, chevron: true },
+  { id: "chal", label: "Challenges", icon: "flag" as const },
+  { id: "vip", label: "VIP Club", icon: Trophy },
+] as const;
+
+const INSIDE = [
+  { id: "aff", label: "Affiliate", icon: "nodes" as const },
+  { id: "spon", label: "Sponsorships", icon: Handshake, chevron: true },
+  { id: "rg", label: "Responsible Gambling", icon: ShieldCheck },
+  { id: "blog", label: "Blog", icon: Newspaper },
+  { id: "forum", label: "Forum", icon: "chat" as const, external: true },
+] as const;
+
 export function BlaastTestShell() {
   const [active, setActive] = useState("home");
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [sideOpen, setSideOpen] = useState(true);
+  /** Nested My Casino (lobby mid-frames) vs global drawer (side_nav t0) */
+  const [nested, setNested] = useState(true);
   const [product, setProduct] = useState<"home" | "casino" | "sports">("casino");
 
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden text-[13px] antialiased"
+      className="flex h-screen flex-col overflow-hidden text-[14px] antialiased"
       style={{ background: S.bg, color: S.text }}
     >
-      <header className="relative z-20 flex h-[60px] shrink-0 items-center gap-2 px-3">
+      <header className="relative z-20 flex h-[60px] shrink-0 items-center gap-3 px-3">
         <button
           type="button"
           aria-label="Menu"
           onClick={() => setSideOpen((o) => !o)}
-          className="flex size-9 items-center justify-center rounded-md transition-colors"
-          style={{ color: S.muted }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = S.text;
+          className="flex size-10 items-center justify-center rounded-full transition-colors"
+          style={{
+            color: S.muted,
+            background: hoverId === "menu" ? S.hover : "transparent",
           }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = S.muted;
-          }}
+          onMouseEnter={() => setHoverId("menu")}
+          onMouseLeave={() => setHoverId(null)}
         >
-          <Menu className="size-[18px]" strokeWidth={2} />
+          <Menu className="size-[20px]" strokeWidth={2} />
         </button>
 
-        {/* Product rail — measured: Home · Favourites · Sports */}
+        {/* Product switcher — measured pill on #191f24 */}
         <div
-          className="flex items-center gap-[2px] rounded-full p-[3px]"
+          className="flex items-center gap-0.5 rounded-full p-1"
           style={{ background: S.side }}
         >
           <RailIcon
             title="Home"
             active={product === "home"}
-            onClick={() => setProduct("home")}
+            onClick={() => {
+              setProduct("home");
+              setNested(false);
+            }}
           >
-            <Home className="size-3.5" strokeWidth={2.25} />
+            <Home className="size-4" strokeWidth={2.25} />
           </RailIcon>
           <RailIcon
-            title="Favourites"
-            active={false}
-            onClick={() => undefined}
+            title="Casino"
+            active={product === "casino"}
+            onClick={() => {
+              setProduct("casino");
+              setNested(true);
+            }}
           >
-            <FolderHeart className="size-3.5" strokeWidth={2} />
+            <CardIcon />
           </RailIcon>
           <RailIcon
             title="Sports"
             active={product === "sports"}
-            onClick={() => setProduct("sports")}
+            onClick={() => {
+              setProduct("sports");
+              setNested(false);
+            }}
           >
             <BasketballIcon />
           </RailIcon>
         </div>
 
         <span
-          className="ml-2 select-none text-[22px] leading-none tracking-tight"
+          className="ml-1 select-none text-[26px] leading-none tracking-tight"
           style={{
-            fontFamily:
-              "ui-serif, Georgia, 'Times New Roman', Times, serif",
+            fontFamily: "ui-serif, Georgia, 'Times New Roman', Times, serif",
             fontWeight: 600,
           }}
         >
           Blaast
         </span>
 
-        <div
-          className="ml-4 flex h-10 items-center gap-2 rounded-md pl-3"
-          style={{ background: S.side }}
-        >
-          <span
-            className="text-[12px] tabular-nums"
-            style={{ color: S.muted }}
-          >
-            0.00000000
-          </span>
+        <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            className="flex size-8 items-center justify-center rounded-md transition-opacity hover:opacity-90"
-            style={{ background: S.blue }}
-            title="Wallet"
+            className="h-10 rounded-md px-4 text-[14px] font-semibold transition-colors"
+            style={{ background: S.signIn, color: S.text }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = S.hover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = S.signIn;
+            }}
           >
-            <Wallet className="size-3.5 text-white" />
+            Sign in
           </button>
-        </div>
-
-        <div className="ml-auto flex items-center gap-0.5">
-          <HdrBtn label="Search">
-            <Search className="size-[18px]" />
-          </HdrBtn>
-          <HdrBtn label="Notifications">
-            <Bell className="size-[18px]" />
-          </HdrBtn>
-          <HdrBtn label="Account">
-            <User className="size-[18px]" />
-          </HdrBtn>
-          <HdrBtn label="Chat panel">
-            <PanelRight className="size-[18px]" />
-          </HdrBtn>
-          <Link
-            href="/library"
-            className="ml-2 hidden text-[11px] xl:inline"
-            style={{ color: S.muted }}
+          <button
+            type="button"
+            className="h-10 rounded-md px-4 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: S.blue }}
           >
-            /blaast-test
-          </Link>
+            Register
+          </button>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 pl-2 pb-2">
+      <div className="flex min-h-0 flex-1 gap-0 px-2 pb-2">
         {sideOpen && (
           <aside
-            className="flex w-[240px] shrink-0 flex-col overflow-hidden rounded-xl"
+            className="flex w-[240px] shrink-0 flex-col overflow-hidden rounded-[12px]"
             style={{ background: S.side }}
           >
-            <button
-              type="button"
-              className="flex h-11 shrink-0 items-center gap-1.5 px-3 text-left text-[14px] font-semibold transition-colors"
-              style={{ color: S.text }}
-            >
-              <ChevronLeft className="size-4" style={{ color: S.muted }} />
-              Casino
-            </button>
+            {nested ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setNested(false)}
+                  className="mx-2 mt-2 flex h-11 shrink-0 items-center gap-1.5 rounded-md px-2 text-left text-[15px] font-semibold transition-colors"
+                  style={{
+                    color: S.text,
+                    background: hoverId === "back" ? S.hover : "transparent",
+                  }}
+                  onMouseEnter={() => setHoverId("back")}
+                  onMouseLeave={() => setHoverId(null)}
+                >
+                  <ChevronLeft className="size-4" style={{ color: S.muted }} />
+                  Casino
+                </button>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-1">
-              <SectionLabel>My Casino</SectionLabel>
-              <nav className="flex flex-col gap-[2px]">
-                {MY_CASINO.map((item) => {
-                  const on = active === item.id;
-                  const hovered = hoverId === item.id;
-                  return (
+                <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-1">
+                  <SectionLabel>My Casino</SectionLabel>
+                  <nav className="flex flex-col gap-0.5">
+                    {MY_CASINO.map((item) => (
+                      <NavRow
+                        key={item.id}
+                        label={item.label}
+                        on={active === item.id}
+                        hovered={hoverId === item.id}
+                        onEnter={() => setHoverId(item.id)}
+                        onLeave={() => setHoverId(null)}
+                        onClick={() => setActive(item.id)}
+                      >
+                        <RowIcon kind={item.icon} />
+                      </NavRow>
+                    ))}
+                  </nav>
+
+                  <SectionLabel className="mt-3">Games</SectionLabel>
+                  <nav className="flex flex-col gap-0.5">
+                    {GAMES.map((item) => (
+                      <NavRow
+                        key={item.id}
+                        label={item.label}
+                        on={active === item.id}
+                        hovered={hoverId === item.id}
+                        onEnter={() => setHoverId(item.id)}
+                        onLeave={() => setHoverId(null)}
+                        onClick={() => setActive(item.id)}
+                      >
+                        <RowIcon kind={item.icon} />
+                      </NavRow>
+                    ))}
+                  </nav>
+                </div>
+              </>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-1 pt-2">
+                <nav className="flex flex-col gap-0.5">
+                  {GLOBAL_PRIMARY.map((item) => (
                     <NavRow
                       key={item.id}
                       label={item.label}
-                      on={on}
-                      hovered={hovered}
+                      on={false}
+                      hovered={hoverId === item.id}
+                      chevron
                       onEnter={() => setHoverId(item.id)}
                       onLeave={() => setHoverId(null)}
                       onClick={() => {
-                        setActive(item.id);
-                        setProduct("casino");
+                        if (item.id === "g-casino") {
+                          setNested(true);
+                          setProduct("casino");
+                        } else {
+                          setProduct("sports");
+                        }
                       }}
                     >
                       <RowIcon kind={item.icon} />
                     </NavRow>
-                  );
-                })}
-              </nav>
-
-              <SectionLabel className="mt-3">Games</SectionLabel>
-              <nav className="flex flex-col gap-[2px]">
-                {GAMES.map((item) => {
-                  const on = active === item.id;
-                  const hovered = hoverId === item.id;
-                  return (
+                  ))}
+                </nav>
+                <SectionLabel className="mt-3">Rewards</SectionLabel>
+                <nav className="flex flex-col gap-0.5">
+                  {REWARDS.map((item) => (
                     <NavRow
                       key={item.id}
                       label={item.label}
-                      on={on}
-                      hovered={hovered}
+                      on={false}
+                      hovered={hoverId === item.id}
+                      chevron={"chevron" in item && item.chevron}
                       onEnter={() => setHoverId(item.id)}
                       onLeave={() => setHoverId(null)}
-                      onClick={() => setActive(item.id)}
+                      onClick={() => undefined}
                     >
                       <RowIcon kind={item.icon} />
                     </NavRow>
-                  );
-                })}
-              </nav>
-            </div>
+                  ))}
+                </nav>
+                <SectionLabel className="mt-3">Inside Stake</SectionLabel>
+                <nav className="flex flex-col gap-0.5">
+                  {INSIDE.map((item) => (
+                    <NavRow
+                      key={item.id}
+                      label={item.label}
+                      on={false}
+                      hovered={hoverId === item.id}
+                      chevron={"chevron" in item && item.chevron}
+                      external={"external" in item && item.external}
+                      onEnter={() => setHoverId(item.id)}
+                      onLeave={() => setHoverId(null)}
+                      onClick={() => undefined}
+                    >
+                      <RowIcon kind={item.icon} />
+                    </NavRow>
+                  ))}
+                </nav>
+              </div>
+            )}
 
             <div
-              className="flex shrink-0 items-center gap-1 border-t px-2 py-2"
-              style={{ borderColor: S.active }}
+              className="flex shrink-0 items-center gap-0.5 border-t px-2 py-2"
+              style={{ borderColor: "rgba(255,255,255,0.06)" }}
             >
               <button
                 type="button"
-                className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors"
-                style={{ color: S.muted }}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors"
+                style={{
+                  color: S.muted,
+                  background: hoverId === "lang" ? S.hover : "transparent",
+                }}
+                onMouseEnter={() => setHoverId("lang")}
+                onMouseLeave={() => setHoverId(null)}
               >
                 <Globe className="size-3.5" />
                 English
@@ -250,14 +324,24 @@ export function BlaastTestShell() {
               <button
                 type="button"
                 className="ml-auto flex size-8 items-center justify-center rounded-md"
-                style={{ color: S.muted }}
+                style={{
+                  color: S.muted,
+                  background: hoverId === "desk" ? S.hover : "transparent",
+                }}
+                onMouseEnter={() => setHoverId("desk")}
+                onMouseLeave={() => setHoverId(null)}
               >
                 <Monitor className="size-4" />
               </button>
               <button
                 type="button"
                 className="flex size-8 items-center justify-center rounded-md"
-                style={{ color: S.muted }}
+                style={{
+                  color: S.muted,
+                  background: hoverId === "help" ? S.hover : "transparent",
+                }}
+                onMouseEnter={() => setHoverId("help")}
+                onMouseLeave={() => setHoverId(null)}
               >
                 <CircleHelp className="size-4" />
               </button>
@@ -266,14 +350,11 @@ export function BlaastTestShell() {
         )}
 
         <main className="relative min-h-0 flex-1" style={{ background: S.bg }}>
-          <div
-            className="pointer-events-none absolute inset-0 flex items-center justify-center"
-            style={{ color: S.active }}
-          >
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <p className="text-center text-[12px]" style={{ color: S.muted }}>
-              Empty stage · shell from lobby still{" "}
-              <span className="font-mono text-[10px] opacity-70">
-                9ac80c76 / side_nav crop
+              Empty stage · chrome from{" "}
+              <span className="font-mono text-[10px] opacity-80">
+                ui-side-nav / ui-tab-bar
               </span>
             </p>
           </div>
@@ -305,6 +386,8 @@ function NavRow({
   label,
   on,
   hovered,
+  chevron,
+  external,
   onEnter,
   onLeave,
   onClick,
@@ -313,28 +396,73 @@ function NavRow({
   label: string;
   on: boolean;
   hovered: boolean;
+  chevron?: boolean;
+  external?: boolean;
   onEnter: () => void;
   onLeave: () => void;
   onClick: () => void;
 }) {
-  const bg = on ? S.active : hovered ? S.hover : "transparent";
+  const bg = on || hovered ? (on ? S.row : S.hover) : "transparent";
   return (
     <button
       type="button"
       onClick={onClick}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
-      className="flex w-full items-center gap-3 rounded-md px-2.5 py-[9px] text-left text-[13px] transition-colors duration-100"
-      style={{
-        background: bg,
-        color: on || hovered ? S.text : S.muted,
-        fontWeight: on ? 600 : 500,
-      }}
+      className="flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left transition-[background-color] duration-100"
+      style={{ background: bg, color: S.text }}
     >
-      <span className="flex size-[18px] shrink-0 items-center justify-center">
+      <span
+        className="flex size-[18px] shrink-0 items-center justify-center"
+        style={{ color: on ? S.text : S.muted }}
+      >
         {children}
       </span>
-      <span className="truncate">{label}</span>
+      <span className="flex-1 truncate text-[13px] font-medium leading-none">
+        {label}
+      </span>
+      {chevron && (
+        <ChevronLeft
+          className="size-3.5 rotate-180 opacity-50"
+          style={{ color: S.muted }}
+        />
+      )}
+      {external && (
+        <ExternalLink className="size-3 opacity-50" style={{ color: S.muted }} />
+      )}
+    </button>
+  );
+}
+
+function RailIcon({
+  children,
+  title,
+  active,
+  onClick,
+}: {
+  children: ReactNode;
+  title: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="flex size-9 items-center justify-center rounded-full transition-colors"
+      style={{
+        background: active ? S.row : "transparent",
+        color: active ? S.text : S.muted,
+      }}
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.background = S.hover;
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.background = "transparent";
+      }}
+    >
+      {children}
     </button>
   );
 }
@@ -348,103 +476,116 @@ function RowIcon({
     | "flag"
     | "s"
     | "777"
+    | "ball"
+    | "nodes"
+    | "chat"
     | typeof Heart
     | typeof Play
     | typeof Sparkles
     | typeof Lightbulb
     | typeof ListChecks
     | typeof Flame
-    | typeof User;
+    | typeof User
+    | typeof Gift
+    | typeof Trophy
+    | typeof Handshake
+    | typeof ShieldCheck
+    | typeof Newspaper;
 }) {
-  if (kind === "casino") {
-    return (
-      <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.75">
-        <rect x="4" y="4" width="16" height="16" rx="2" />
-        <path d="M8 12h.01M12 8v8M16 12h.01" />
-      </svg>
-    );
+  if (typeof kind !== "string") {
+    const Icon = kind;
+    return <Icon className="size-[16px]" strokeWidth={1.75} />;
   }
+  if (kind === "casino") return <CardIcon />;
+  if (kind === "ball") return <BasketballIcon />;
   if (kind === "saved") {
     return (
-      <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.75">
-        <path d="M7 4h10v16l-5-3-5 3V4z" />
-      </svg>
+      <span className="relative inline-flex size-4">
+        <span className="absolute inset-0 rounded-[2px] border border-current opacity-70" />
+        <Heart className="absolute -right-0.5 -top-0.5 size-2.5 fill-current" />
+      </span>
     );
   }
   if (kind === "flag") {
     return (
-      <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.75">
-        <path d="M6 3v18M6 4c4 2 6-1 10 1v8c-4-2-6 1-10-1" />
+      <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden>
+        <path
+          d="M3 14V3.5h.5l1.2 1.8L6 3.5h5.5v6H6.2L4.8 7.5 3.5 9.5H3"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
   if (kind === "s") {
-    return <span className="text-[12px] font-bold leading-none">S</span>;
+    return (
+      <span className="text-[11px] font-bold leading-none tracking-tighter">
+        S
+      </span>
+    );
   }
   if (kind === "777") {
-    return <span className="text-[9px] font-bold leading-none tracking-tighter">777</span>;
+    return (
+      <span className="text-[9px] font-bold leading-none tracking-tighter">
+        777
+      </span>
+    );
   }
-  const Icon = kind;
-  return <Icon className="size-[18px]" strokeWidth={1.75} />;
+  if (kind === "nodes") {
+    return (
+      <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden>
+        <circle cx="4" cy="4" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+        <circle cx="12" cy="4" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+        <circle cx="8" cy="12" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M5.2 5.2 7 10.5M10.8 5.2 9 10.5" stroke="currentColor" strokeWidth="1.2" />
+      </svg>
+    );
+  }
+  if (kind === "chat") {
+    return (
+      <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden>
+        <path
+          d="M3 3.5h10v7H7l-2.5 2v-2H3v-7Z"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  return null;
 }
 
-function RailIcon({
-  children,
-  title,
-  active,
-  onClick,
-}: {
-  children: ReactNode;
-  title: string;
-  active?: boolean;
-  onClick: () => void;
-}) {
+function CardIcon() {
   return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      className="flex size-8 items-center justify-center rounded-full transition-colors duration-100"
-      style={{
-        background: active ? S.active : "transparent",
-        color: active ? S.text : S.muted,
-      }}
-      onMouseEnter={(e) => {
-        if (!active) e.currentTarget.style.color = S.text;
-      }}
-      onMouseLeave={(e) => {
-        if (!active) e.currentTarget.style.color = S.muted;
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function HdrBtn({ children, label }: { children: ReactNode; label: string }) {
-  return (
-    <button
-      type="button"
-      title={label}
-      className="flex size-9 items-center justify-center rounded-md transition-colors duration-100"
-      style={{ color: S.muted }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = S.text;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = S.muted;
-      }}
-    >
-      {children}
-    </button>
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden>
+      <rect
+        x="3"
+        y="2"
+        width="10"
+        height="12"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M8 6.2c-.7-.9-2-.5-2 .6 0 1.4 2 2.6 2 2.6s2-1.2 2-2.6c0-1.1-1.3-1.5-2-.6Z"
+        fill="currentColor"
+      />
+    </svg>
   );
 }
 
 function BasketballIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9M12 3c-2.5 2.5-3.5 5.5-3.5 9s1 6.5 3.5 9M3.5 12h17" />
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="M8 2.5v11M2.5 8h11M4 4c2 2 6 2 8 0M4 12c2-2 6-2 8 0"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
     </svg>
   );
 }
