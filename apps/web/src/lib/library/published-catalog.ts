@@ -194,6 +194,41 @@ function slugHost(host: string) {
 }
 
 /**
+ * Brand-specific catalogue hero (library card + operator default thumb).
+ * Prefer coverage ids / title needles before the global casino→betslip ladder.
+ */
+const HERO_PREFER_BY_SLUG: Record<
+  string,
+  { stepIds: string[]; titleNeedles: string[] }
+> = {
+  "whale-io": {
+    stepIds: ["rewards_page", "rewards_hub", "scr-vip", "vip_page"],
+    titleNeedles: ["rewards page", "rewards hub", "vip page", "rewards"],
+  },
+};
+
+function pickPreferredHero(
+  slug: string,
+  items: LibraryMediaItem[],
+): LibraryMediaItem | undefined {
+  const prefer = HERO_PREFER_BY_SLUG[slug];
+  if (!prefer) return undefined;
+  const withVideo = items.filter((i) => i.hasVideo);
+  for (const id of prefer.stepIds) {
+    const hit = withVideo.find((i) => i.coverageStepId === id);
+    if (hit) return hit;
+  }
+  for (const needle of prefer.titleNeedles) {
+    const hit = withVideo.find((i) => {
+      const hay = `${i.title} ${(i.tags ?? []).join(" ")}`.toLowerCase();
+      return hay.includes(needle);
+    });
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/**
  * Full media index for MCP / admin (includes annotation segments).
  * Public catalogue uses `catalogFromPublished`, which ignores annotation cards.
  */
@@ -898,9 +933,11 @@ export async function catalogFromPublished(
       anns,
     );
     // Prefer a trimmed screen beat for the catalogue hero (not a black t=0 frame).
-    // Casino lobby first when present (crypto/casino brands beat sports home).
+    // Brand overrides first (e.g. Whale → Rewards page).
+    // Then casino lobby when present (crypto/casino brands beat sports home).
     // Then betslip over full event view so sports covers stay element-true.
     const hero =
+      pickPreferredHero(slugHost(host), use) ??
       use.find(
         (i) =>
           i.hasVideo &&
