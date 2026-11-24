@@ -35,9 +35,22 @@ async function ensureStore(): Promise<AdminStore> {
   }
 }
 
-async function writeStore(store: AdminStore) {
+async function writeStore(store: AdminStore, opts?: { syncSessions?: boolean }) {
   await fs.mkdir(dataDir(), { recursive: true });
   await fs.writeFile(storePath(), JSON.stringify(store, null, 2));
+  // Vercel /tmp is not shared — keep sessions in Storage so /stage never 404s.
+  if (opts?.syncSessions !== false && store.sessions.length) {
+    try {
+      const { upsertSessionCloud } = await import("@/lib/admin/sessions-cloud");
+      const merged = await Promise.all(
+        store.sessions.map((sess) => upsertSessionCloud(sess)),
+      );
+      store.sessions = merged;
+      await fs.writeFile(storePath(), JSON.stringify(store, null, 2));
+    } catch (err) {
+      console.error("[writeStore] sessions cloud", err);
+    }
+  }
 }
 
 function hostnameFromUrl(url: string) {
@@ -209,14 +222,48 @@ export async function updateOperator(
 
 export async function listSessions(operatorId?: string) {
   const store = await ensureStore();
-  let sessions = store.sessions;
-  if (operatorId) sessions = sessions.filter((s) => s.operatorId === operatorId);
-  return sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  try {
+    const { listSessionsCloud } = await import("@/lib/admin/sessions-cloud");
+    const cloud = await listSessionsCloud();
+    if (cloud.length) {
+      const byId = new Map<string, CaptureSession>();
+      for (const sess of cloud) byId.set(sess.id, sess);
+      for (const sess of store.sessions) {
+        const prev = byId.get(sess.id);
+        if (!prev || (sess.updatedAt || "") >= (prev.updatedAt || "")) {
+          byId.set(sess.id, sess);
+        }
+      }
+      store.sessions = [...byId.values()];
+      await writeStore(store, { syncSessions: false });
+    }
+  } catch (err) {
+    console.error("[listSessions] cloud", err);
+  }
+  const sessions = operatorId
+    ? store.sessions.filter((sess) => sess.operatorId === operatorId)
+    : store.sessions;
+  return [...sessions].sort((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt),
+  );
 }
 
 export async function getSession(id: string) {
   const store = await ensureStore();
-  return store.sessions.find((s) => s.id === id) ?? null;
+  const local = store.sessions.find((sess) => sess.id === id);
+  if (local) return local;
+  try {
+    const { getSessionCloud } = await import("@/lib/admin/sessions-cloud");
+    const cloud = await getSessionCloud(id);
+    if (cloud) {
+      store.sessions.push(cloud);
+      await writeStore(store, { syncSessions: false });
+      return cloud;
+    }
+  } catch (err) {
+    console.error("[getSession] cloud", err);
+  }
+  return null;
 }
 
 export async function startCaptureSession(input: {
@@ -274,6 +321,13 @@ export async function startCaptureSession(input: {
   };
   store.sessions.push(session);
   await writeStore(store);
+  // Ensure object exists before client opens /stage on another instance
+  try {
+    const { upsertSessionCloud } = await import("@/lib/admin/sessions-cloud");
+    await upsertSessionCloud(session);
+  } catch (err) {
+    console.error("[startCaptureSession] session cloud", err);
+  }
   return session;
 }
 

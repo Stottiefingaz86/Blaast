@@ -170,6 +170,10 @@ export type CaptureSession = {
   guide?: SessionGuide;
   artifacts?: RecordingArtifact[];
   /**
+   * Artifact ids intentionally deleted — cloud/local merges must not resurrect them.
+   */
+  removedArtifactIds?: string[];
+  /**
    * Tags added before/during a beat, keyed by coverageStepId.
    * Merged onto the artifact when the clip uploads.
    */
