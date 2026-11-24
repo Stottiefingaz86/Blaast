@@ -33,6 +33,7 @@ import type {
   CatalogEmail,
   CatalogFlow,
   CatalogOperator,
+  CatalogScreen,
   CatalogUiElement,
   MediaRegion,
 } from "@/lib/library/catalog";
@@ -167,6 +168,7 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
   const [uiCategory, setUiCategory] = useState<string>("All");
   const [flowCarousel, setFlowCarousel] = useState<CatalogFlow | null>(null);
   const [flowStepId, setFlowStepId] = useState<string | undefined>();
+  const [screenOpen, setScreenOpen] = useState<CatalogScreen | null>(null);
   const [emailOpen, setEmailOpen] = useState<CatalogEmail | null>(null);
   const tabsSentinelRef = useRef<HTMLDivElement>(null);
   const brandEmails = operator.emails ?? [];
@@ -700,50 +702,46 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
         {!missingPlatform && tab === "screens" && (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {sortedScreens.map((screen) => {
-              const flowHref =
-                operator.flows.find((f) =>
-                  f.steps.some((s) => s.id === screen.id),
-                )?.id ?? operator.flows[0]?.id;
               const canTrim = Boolean(
                 screen.sessionId && screen.artifactId && screen.videoUrl,
               );
               return (
                 <div key={screen.id} className="group">
-                  <Link
-                    href={
-                      flowHref
-                        ? `/flows/${flowHref}?step=${encodeURIComponent(screen.id)}`
-                        : `/operators/${operator.slug}`
-                    }
-                    className="block"
+                  <button
+                    type="button"
+                    onClick={() => setScreenOpen(screen)}
+                    className="lib-card relative w-full overflow-hidden rounded-[28px] p-5 text-left sm:p-6 ring-0 outline-none transition hover:ring-2 hover:ring-white/20 focus-visible:ring-2 focus-visible:ring-white/40"
                   >
-                    <div className="lib-card relative overflow-hidden rounded-[28px] p-5 sm:p-6">
-                      {screen.videoUrl && (
-                        <span className="absolute top-3 right-3 z-10 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-neutral-200">
-                          Video
-                        </span>
+                    {screen.videoUrl && (
+                      <span className="absolute top-3 right-3 z-10 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-neutral-200">
+                        Video
+                      </span>
+                    )}
+                    <div
+                      className={cn(
+                        "pointer-events-none mx-auto overflow-hidden ring-1 ring-white/10",
+                        isMobile
+                          ? "aspect-[9/19] max-w-[180px] rounded-[22px]"
+                          : "aspect-[16/10] rounded-2xl",
                       )}
-                      <div
-                        className={cn(
-                          "mx-auto overflow-hidden ring-1 ring-white/10",
-                          isMobile
-                            ? "aspect-[9/19] max-w-[180px] rounded-[22px]"
-                            : "aspect-[16/10] rounded-2xl",
-                        )}
-                      >
-                        <HoverCapture
-                          posterUrl={screen.posterUrl ?? operator.posterUrl}
-                          videoUrl={screen.videoUrl}
-                          clipWindow={screen.clipWindow}
-                          label={screen.title}
-                        />
-                      </div>
+                    >
+                      <HoverCapture
+                        posterUrl={screen.posterUrl ?? operator.posterUrl}
+                        videoUrl={screen.videoUrl}
+                        clipWindow={screen.clipWindow}
+                        atMs={screen.atMs}
+                        label={screen.title}
+                      />
                     </div>
-                  </Link>
+                  </button>
                   <div className="mt-2.5 flex items-center justify-between gap-2 px-0.5">
-                    <p className="truncate text-[13px] font-medium text-neutral-200">
+                    <button
+                      type="button"
+                      onClick={() => setScreenOpen(screen)}
+                      className="truncate text-left text-[13px] font-medium text-neutral-200 hover:text-white"
+                    >
                       {screen.title}
-                    </p>
+                    </button>
                     {canTrim && (
                       <button
                         type="button"
@@ -1165,6 +1163,59 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
           }
         }}
       />
+
+      {screenOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            aria-label="Close"
+            onClick={() => setScreenOpen(null)}
+          />
+          <div className="relative z-10 flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-2xl">
+            <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-[15px] font-semibold text-white">
+                  {screenOpen.title}
+                </h2>
+                {screenOpen.category && (
+                  <p className="text-[11px] text-neutral-500">
+                    {screenOpen.category}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setScreenOpen(null)}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:bg-white/[0.06] hover:text-white"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div
+              className={cn(
+                "mx-auto w-full bg-black",
+                isMobile
+                  ? "max-h-[80vh] max-w-[360px] aspect-[9/19]"
+                  : "aspect-video max-h-[80vh]",
+              )}
+            >
+              <CaptureMedia
+                posterUrl={screenOpen.posterUrl ?? operator.posterUrl}
+                videoUrl={screenOpen.videoUrl}
+                atMs={screenOpen.atMs}
+                region={screenOpen.region}
+                clipWindow={screenOpen.clipWindow}
+                label={screenOpen.title}
+                playOnHover={false}
+                hovering
+                loop
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {emailOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
