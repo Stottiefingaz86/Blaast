@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { BrandLogo } from "@/components/admin/brand-logo";
 import { ClipReviewModal } from "@/components/admin/clip-review-modal";
 import { CaptureMedia } from "@/components/library/capture-media";
 import { OperatorSegmentForm } from "@/components/admin/operator-segment-form";
@@ -286,27 +287,30 @@ export function BrandDesk({
       {/* Progress + primary actions */}
       <section className="rounded-[20px] border border-black/[0.06] bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[13px] text-neutral-500">{operator.url}</p>
-            <p className="mt-2 text-[14px] font-semibold text-neutral-900">
-              Brand E2E
-              <span className="ml-2 font-normal text-neutral-500">
+          <div className="flex min-w-0 items-start gap-3.5">
+            <BrandLogo
+              domain={operator.hostname}
+              name={operator.name}
+              size={52}
+              className="rounded-2xl"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-[18px] font-semibold tracking-tight text-neutral-950">
+                {operator.name}
+              </p>
+              <p className="truncate text-[13px] text-neutral-500">
+                {operator.url}
+              </p>
+              <p className="mt-2 text-[13px] text-neutral-600">
                 {doneCount}/{checklist.length} steps
                 {missing.length
                   ? ` · ${missing.length} missing`
                   : " · complete"}
-              </span>
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-neutral-500">
-              <span>
-                Desktop {desktop.journeysComplete}/{desktop.journeysTotal}{" "}
-                journeys
-              </span>
-              <span className="text-neutral-300">·</span>
-              <span>
-                Mobile {mobile.journeysComplete}/{mobile.journeysTotal}{" "}
-                journeys
-              </span>
+                <span className="text-neutral-300"> · </span>
+                Desktop {desktop.journeysComplete}/{desktop.journeysTotal}
+                <span className="text-neutral-300"> · </span>
+                Mobile {mobile.journeysComplete}/{mobile.journeysTotal}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
