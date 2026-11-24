@@ -1,26 +1,29 @@
 # Blaast MCP rebuild (exact chrome)
 
-## Where fidelity fails (measured)
+## Why 14 Stake videos still produce a wrong side nav
 
-1. **`get_evidence` must return the exact beat** (`…-ui-side-nav`, `…-ui-tab-bar`). If it returns a journey (`first_deposit`) the agent never sees nav media — that was a real bug (stale local session + journey fallback). Fix: merge cloud published clips before beat lookup.
-2. **Video “motion analysis” is scene-cut detection**, not hover/CSS. For hovers: open `video_url`, scrub frames, sample row colours. Do not invent `#2f4553` from memory.
-3. **Skills help process, not measurement.** A skill cannot replace opening posters. Add/use this skill so agents always: search → exact evidence_id → open still → sample → code.
-4. **Two Stake nav states in one session.** `ui-side-nav` t0 ≈ global drawer (Casino/Sports/Rewards/Inside Stake). Mid frames / lobby ≈ nested **My Casino**. Match the frame the user pointed at; do not mix states.
+Videos alone are not a rebuild contract. Exact replication needs all of:
 
-## Required MCP sequence
+| Need | Have today? | Role |
+|------|-------------|------|
+| Approved still of the **exact nav state** (global vs nested My Casino) | Partial — side_nav clip contains both; must pick the frame | Layout IA |
+| First-frame / tagged poster of that state | Yes if approved | Color + spacing ground truth |
+| **Logged-in header** still (wallet / search / bell / panel) | Often missing as its own beat | Header chrome |
+| Structure snapshot with **computed CSS** (bg, radius, gap, font) | Weak / often empty | Stops guessing hex |
+| Hover/active as **paired frames or CSS** | Scene-detect only — not hover | Interaction |
+| MCP returns **exact beat** (`…-ui-side-nav`), not journey | Fixed in code; must be live on Vercel | Agent sees right media |
+| Agent skill: open still → sample → code | Skill exists; must be followed | Process |
 
-```
-search_ui operator=stake query="side nav"
-→ evidenceId …-ui-side-nav
-get_evidence evidence_id=<that exact id>
-→ confirm evidence.evidenceId ends with ui-side-nav (NOT first_deposit / home_tour)
-→ open poster_url + video_url; sample colours from stills
-```
+Without structure CSS + a named state still, agents approximate. That is the product gap — not “missing Stake clips.”
 
-## Sandbox `/blaast-test`
+## Required sequence
 
-Empty middle. Chrome only. Colours from library stills. Cite artifact ids in a code comment.
+1. `search_ui` operator=stake query=`side nav`
+2. Take `evidenceId` ending in `ui-side-nav` (not `first_deposit` / `home_tour`)
+3. `get_evidence` — confirm `evidence.evidenceId` matches; open `poster_url` + `video_url`
+4. Match the **same nav state** as the target screenshot (global ≠ nested)
+5. Sample colours from the still; cite artifact id in a code comment
 
-## Not Mobbin
+## Sandbox
 
-Never use Mobbin for Blaast rebuilds.
+`/blaast-test` — empty middle, chrome only. Target for Stake shell = **global** drawer + logged-in header (user reference still).
