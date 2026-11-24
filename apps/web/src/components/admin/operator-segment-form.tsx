@@ -27,7 +27,14 @@ const TIER_OPTIONS: { id: OperatorReferenceTier | ""; label: string }[] = [
   { id: "core", label: "Core" },
 ];
 
-export function OperatorSegmentForm({ operator }: { operator: Operator }) {
+export function OperatorSegmentForm({
+  operator,
+  embedded = false,
+}: {
+  operator: Operator;
+  /** Hide outer card chrome when nested in another panel */
+  embedded?: boolean;
+}) {
   const router = useRouter();
   const [vertical, setVertical] = useState<OperatorVertical>(
     operator.vertical ?? "other",
@@ -66,13 +73,8 @@ export function OperatorSegmentForm({ operator }: { operator: Operator }) {
     }
   }
 
-  return (
-    <section className="rounded-[20px] border border-black/[0.06] bg-white p-6">
-      <h2 className="text-[13px] font-semibold">Pattern intelligence</h2>
-      <p className="mt-1 text-[12px] text-neutral-500">
-        Vertical + reference tier power MCP most_used / notable_flows answers.
-      </p>
-      <div className="mt-4 flex flex-col gap-3">
+  const body = (
+      <div className={embedded ? "flex flex-col gap-3" : "mt-4 flex flex-col gap-3"}>
         <div className="flex flex-wrap gap-1.5">
           {VERTICAL_OPTIONS.map((v) => (
             <button
@@ -137,6 +139,17 @@ export function OperatorSegmentForm({ operator }: { operator: Operator }) {
           </button>
         </div>
       </div>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <section className="rounded-[20px] border border-black/[0.06] bg-white p-6">
+      <h2 className="text-[13px] font-semibold">Pattern intelligence</h2>
+      <p className="mt-1 text-[12px] text-neutral-500">
+        Vertical + reference tier power MCP most_used / notable_flows answers.
+      </p>
+      {body}
     </section>
   );
 }
