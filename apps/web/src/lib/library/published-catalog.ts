@@ -507,8 +507,16 @@ export async function catalogFromPublished(
       return slot !== "ui";
     }));
     // Prefer a trimmed screen beat for the catalogue hero (not a black t=0 frame).
-    // Prefer betslip over full event view so filtered covers stay element-true.
+    // Casino lobby first when present (crypto/casino brands beat sports home).
+    // Then betslip over full event view so sports covers stay element-true.
     const hero =
+      use.find(
+        (i) =>
+          i.hasVideo &&
+          (i.coverageStepId === "scr-casino-lobby" ||
+            i.coverageStepId === "ca-lobby"),
+      ) ??
+      use.find((i) => i.hasVideo && i.coverageStepId === "flow-game-launch") ??
       use.find((i) => i.hasVideo && i.coverageStepId === "scr-betslip") ??
       use.find((i) => i.hasVideo && i.coverageStepId === "flow-bet-add") ??
       use.find((i) => i.hasVideo && i.coverageStepId === "flow-bet-event") ??
