@@ -20,6 +20,7 @@ import type {
   Platform,
   RecordingArtifact,
 } from "@/lib/admin/types";
+import { vpnHintForBrand } from "@/lib/admin/vpn-hint";
 import { cn } from "@/lib/utils";
 
 type ClipRow = RecordingArtifact & {
@@ -281,6 +282,11 @@ export function BrandDesk({
 
   const desktop = platformCoverage.desktop;
   const mobile = platformCoverage.mobile;
+  const vpn = vpnHintForBrand({
+    domain: operator.hostname,
+    regions: operator.regions,
+    markets: operator.markets,
+  });
 
   return (
     <div className="flex flex-col gap-5">
@@ -300,6 +306,12 @@ export function BrandDesk({
               </p>
               <p className="truncate text-[13px] text-neutral-500">
                 {operator.url}
+              </p>
+              <p
+                className="mt-2 inline-flex items-center rounded-full bg-violet-50 px-2.5 py-1 text-[12px] font-medium text-violet-900"
+                title={vpn.detail}
+              >
+                {vpn.detail}
               </p>
               <p className="mt-2 text-[13px] text-neutral-600">
                 {doneCount}/{checklist.length} steps

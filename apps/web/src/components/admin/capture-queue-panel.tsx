@@ -122,7 +122,8 @@ export function CaptureQueuePanel({
       const sessData = await sessRes.json();
       if (!sessRes.ok) throw new Error(sessData.error || "Could not start");
       const sessionId = sessData.session.id as string;
-      toast.success(`Recording ${row.name} — capture window opening`);
+      toast.success(`${row.vpn.detail} · then capture opens`);
+      toast.message(`Recording ${row.name}`);
       window.open(
         `/admin/capture/${sessionId}/stage`,
         `blaast-stage-${sessionId}`,
@@ -197,14 +198,22 @@ export function CaptureQueuePanel({
                 <p className="w-full truncate text-[11px] text-neutral-400">
                   {row.domain}
                 </p>
-                <span
-                  className={cn(
-                    "mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
-                    STATUS_CLASS[row.status],
-                  )}
-                >
-                  {STATUS_LABEL[row.status]}
-                </span>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      STATUS_CLASS[row.status],
+                    )}
+                  >
+                    {STATUS_LABEL[row.status]}
+                  </span>
+                  <span
+                    className="inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-800"
+                    title={row.vpn.detail}
+                  >
+                    VPN {row.vpn.label}
+                  </span>
+                </div>
               </button>
               <button
                 type="button"

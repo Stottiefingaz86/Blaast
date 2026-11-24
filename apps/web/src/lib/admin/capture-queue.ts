@@ -1,5 +1,6 @@
 import { platformCoverageForOperator } from "@/lib/admin/platform-coverage";
 import type { CaptureSession, Operator } from "@/lib/admin/types";
+import { vpnHintForBrand, type VpnHint } from "@/lib/admin/vpn-hint";
 import { OPERATOR_LOGOS } from "@/lib/marketing/operator-logos";
 
 export type CaptureQueueStatus =
@@ -19,6 +20,8 @@ export type CaptureQueueRow = {
   operatorId?: string;
   desktopLabel?: string;
   mobileLabel?: string;
+  /** Suggested VPN exit for capture */
+  vpn: VpnHint;
 };
 
 function hostKey(hostname: string) {
@@ -39,6 +42,16 @@ export function buildCaptureQueue(
 
   return OPERATOR_LOGOS.map((logo, i) => {
     const op = byHost.get(hostKey(logo.domain));
+    const regions = op?.regions?.length
+      ? op.regions
+      : logo.regions;
+    const markets = op?.markets ?? [];
+    const vpn = vpnHintForBrand({
+      domain: logo.domain,
+      regions,
+      markets,
+    });
+
     if (!op) {
       return {
         rank: i + 1,
@@ -46,8 +59,9 @@ export function buildCaptureQueue(
         name: logo.alt,
         domain: logo.domain,
         verticals: logo.verticals,
-        regions: logo.regions,
+        regions,
         status: "todo" as const,
+        vpn,
       };
     }
 
@@ -65,7 +79,7 @@ export function buildCaptureQueue(
       name: logo.alt,
       domain: logo.domain,
       verticals: logo.verticals,
-      regions: logo.regions,
+      regions,
       status,
       operatorId: op.id,
       desktopLabel: desktop.session
@@ -74,6 +88,7 @@ export function buildCaptureQueue(
       mobileLabel: mobile.session
         ? `${mobile.journeysComplete}/${mobile.journeysTotal} mobile`
         : undefined,
+      vpn,
     };
   });
 }
