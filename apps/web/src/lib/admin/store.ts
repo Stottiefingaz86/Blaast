@@ -216,7 +216,21 @@ export async function startCaptureSession(input: {
   market?: string;
 }) {
   const store = await ensureStore();
-  const operator = store.operators.find((o) => o.id === input.operatorId);
+  // Vercel: operator often exists only in Supabase operators-index — hydrate local.
+  let operator = store.operators.find((o) => o.id === input.operatorId);
+  if (!operator) {
+    try {
+      const { getOperatorCloud } = await import("@/lib/admin/operators-cloud");
+      const cloud = await getOperatorCloud(input.operatorId);
+      if (cloud) {
+        store.operators.push(cloud);
+        await writeStore(store);
+        operator = cloud;
+      }
+    } catch (err) {
+      console.error("[startCaptureSession] cloud hydrate", err);
+    }
+  }
   if (!operator) throw new Error("Operator not found");
 
   const playbook =
