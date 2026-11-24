@@ -411,12 +411,11 @@ export function FlowStepCarousel({
                           flow.posterUrl ??
                           operator.posterUrl
                         }
+                        // Always pass video so missing posters still show a frame
                         videoUrl={
-                          playing
-                            ? current.videoUrl ??
-                              flow.videoUrl ??
-                              operator.videoUrl
-                            : undefined
+                          current.videoUrl ??
+                          flow.videoUrl ??
+                          operator.videoUrl
                         }
                         atMs={current.atMs}
                         region={current.region}
@@ -424,6 +423,7 @@ export function FlowStepCarousel({
                         label={`${safeStep + 1}. ${current.label}`}
                         playOnHover={false}
                         hovering={playing}
+                        loop={playing}
                       />
                       {!playing &&
                         (current.videoUrl ||
@@ -469,11 +469,20 @@ export function FlowStepCarousel({
           </p>
 
           {total > 1 && (
-            <ul className="flex gap-2.5 overflow-x-auto pb-1">
+            <ul className="flex gap-2.5 overflow-x-auto px-1 py-2">
               {flow.steps.map((s, i) => {
                 const active = i === safeStep;
+                const poster =
+                  s.posterUrl ||
+                  (!s.videoUrl ? flow.posterUrl : undefined) ||
+                  (!s.videoUrl ? operator.posterUrl : undefined);
+                const video = s.videoUrl;
+                const thumbAt = Math.max(
+                  0.2,
+                  (s.clipWindow?.startMs ?? s.atMs ?? 400) / 1000,
+                );
                 return (
-                  <li key={s.id} className="shrink-0">
+                  <li key={s.id} className="shrink-0 p-0.5">
                     <button
                       type="button"
                       onClick={() => {
@@ -481,31 +490,35 @@ export function FlowStepCarousel({
                         setStep(i);
                       }}
                       className={cn(
-                        "w-[120px] overflow-hidden rounded-xl text-left transition",
+                        "w-[120px] rounded-xl text-left transition",
                         active
-                          ? "ring-2 ring-white"
+                          ? "ring-2 ring-white ring-offset-2 ring-offset-[#1a1a1a]"
                           : "ring-1 ring-white/10 hover:ring-white/25",
                       )}
                     >
-                      <div className="aspect-[16/10] bg-[#111]">
-                        {(s.posterUrl ||
-                          flow.posterUrl ||
-                          operator.posterUrl) && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            alt=""
-                            src={
-                              s.posterUrl ??
-                              flow.posterUrl ??
-                              operator.posterUrl
-                            }
-                            className="h-full w-full object-cover"
-                          />
-                        )}
+                      <div className="overflow-hidden rounded-[10px]">
+                        <div className="aspect-[16/10] bg-[#111]">
+                          {poster ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              alt=""
+                              src={poster}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : video ? (
+                            <video
+                              src={`${video}#t=${thumbAt.toFixed(2)}`}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <p className="truncate bg-[#1a1a1a] px-2 py-1.5 text-[11px] text-white/80">
+                          {i + 1}. {s.label}
+                        </p>
                       </div>
-                      <p className="truncate px-2 py-1.5 text-[11px] text-white/80">
-                        {i + 1}. {s.label}
-                      </p>
                     </button>
                   </li>
                 );

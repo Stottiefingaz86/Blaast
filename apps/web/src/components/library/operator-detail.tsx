@@ -1015,8 +1015,16 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
                       .map((s, i) => {
                         const src =
                           s.posterUrl ||
-                          (!s.email ? flow.posterUrl : undefined) ||
-                          (!s.email ? operator.posterUrl : undefined);
+                          (!s.videoUrl && !s.email
+                            ? flow.posterUrl
+                            : undefined) ||
+                          (!s.videoUrl && !s.email
+                            ? operator.posterUrl
+                            : undefined);
+                        const thumbAt = Math.max(
+                          0.2,
+                          (s.clipWindow?.startMs ?? s.atMs ?? 400) / 1000,
+                        );
                         return (
                           <div
                             key={s.id}
@@ -1042,12 +1050,12 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
                                 }}
                               />
                             ) : s.videoUrl ? (
-                              <CaptureMedia
-                                videoUrl={s.videoUrl}
-                                clipWindow={s.clipWindow}
-                                label={s.label}
-                                playOnHover={false}
-                                hovering={false}
+                              <video
+                                src={`${s.videoUrl}#t=${thumbAt.toFixed(2)}`}
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="h-full w-full object-cover"
                               />
                             ) : (
                               <div className="flex h-full items-center justify-center text-[10px] text-white/30">
