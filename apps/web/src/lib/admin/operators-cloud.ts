@@ -89,7 +89,9 @@ async function fetchOperatorsIndex(): Promise<Operator[]> {
 
 async function uploadOperatorsIndex(ops: Operator[]): Promise<void> {
   const { url, key } = scuupConfig();
-  if (!url || !key) return;
+  if (!url || !key) {
+    throw new Error("Supabase is not configured — cannot persist operators");
+  }
   const body = JSON.stringify(ops.map(operatorToRow));
   const res = await fetch(
     `${url}/storage/v1/object/${BUCKET}/${INDEX_PATH}`,
@@ -105,11 +107,50 @@ async function uploadOperatorsIndex(ops: Operator[]): Promise<void> {
     },
   );
   if (!res.ok) {
-    console.error(
-      "[operators-index upload]",
-      res.status,
-      (await res.text()).slice(0, 200),
+    const text = (await res.text()).slice(0, 200);
+    console.error("[operators-index upload]", res.status, text);
+    throw new Error(`Failed to persist operators index (${res.status})`);
+  }
+}
+
+async function uploadOperatorObject(op: Operator): Promise<void> {
+  const { url, key } = scuupConfig();
+  if (!url || !key) {
+    throw new Error("Supabase is not configured — cannot persist operators");
+  }
+  const res = await fetch(
+    `${url}/storage/v1/object/${BUCKET}/operators/${op.id}.json`,
+    {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        "x-upsert": "true",
+      },
+      body: JSON.stringify(operatorToRow(op)),
+    },
+  );
+  if (!res.ok) {
+    const text = (await res.text()).slice(0, 200);
+    console.error("[operator object upload]", op.id, res.status, text);
+    throw new Error(`Failed to persist operator ${op.name} (${res.status})`);
+  }
+}
+
+async function fetchOperatorObject(id: string): Promise<Operator | null> {
+  const { url, key } = scuupConfig();
+  if (!url || !key) return null;
+  try {
+    const res = await fetch(
+      `${url}/storage/v1/object/public/${BUCKET}/operators/${id}.json?t=${Date.now()}`,
+      { cache: "no-store" },
     );
+    if (!res.ok) return null;
+    const row = (await res.json()) as CloudRow;
+    return row?.id ? rowToOperator(row) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -159,15 +200,26 @@ async function upsertOperatorTable(op: Operator): Promise<void> {
   }
 }
 
-/** Persist operator so Vercel serverless can read it after create. */
+/**
+ * Persist operator for every Vercel instance.
+ * Writes per-id object first (reliable read), then the sites index.
+ */
 export async function upsertOperatorCloud(op: Operator): Promise<void> {
+  await uploadOperatorObject(op);
   const existing = await listOperatorsCloud();
   const next = mergeOperators(existing, [op]);
   await uploadOperatorsIndex(next);
-  await upsertOperatorTable(op);
+  try {
+    await upsertOperatorTable(op);
+  } catch (err) {
+    // Table is optional — Storage object + index are enough for capture
+    console.error("[upsertOperatorCloud] table", err);
+  }
 }
 
 export async function getOperatorCloud(id: string): Promise<Operator | null> {
+  const direct = await fetchOperatorObject(id);
+  if (direct) return direct;
   const all = await listOperatorsCloud();
   return all.find((o) => o.id === id) ?? null;
 }

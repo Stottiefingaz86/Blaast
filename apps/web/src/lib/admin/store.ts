@@ -78,7 +78,12 @@ export async function getOperator(id: string) {
   if (local) return local;
   try {
     const { getOperatorCloud } = await import("@/lib/admin/operators-cloud");
-    return await getOperatorCloud(id);
+    const cloud = await getOperatorCloud(id);
+    if (cloud) {
+      store.operators.push(cloud);
+      await writeStore(store);
+    }
+    return cloud;
   } catch (err) {
     console.error("[getOperator] cloud", err);
     return null;
@@ -122,11 +127,16 @@ export async function createOperator(input: {
   };
   store.operators.push(operator);
   await writeStore(store);
-  try {
-    const { upsertOperatorCloud } = await import("@/lib/admin/operators-cloud");
-    await upsertOperatorCloud(operator);
-  } catch (err) {
-    console.error("[createOperator] cloud", err);
+  // Must land in Storage — Vercel /tmp is empty on the next request/instance.
+  const { upsertOperatorCloud, getOperatorCloud } = await import(
+    "@/lib/admin/operators-cloud"
+  );
+  await upsertOperatorCloud(operator);
+  const verified = await getOperatorCloud(operator.id);
+  if (!verified) {
+    throw new Error(
+      "Brand saved locally but not visible in cloud Storage yet — retry Add brand",
+    );
   }
   return operator;
 }
@@ -231,7 +241,11 @@ export async function startCaptureSession(input: {
       console.error("[startCaptureSession] cloud hydrate", err);
     }
   }
-  if (!operator) throw new Error("Operator not found");
+  if (!operator) {
+    throw new Error(
+      "Operator not found in cloud Storage — re-open the brand from Sites or add it again",
+    );
+  }
 
   const playbook =
     input.playbookId === COVERAGE_PACK_ID
