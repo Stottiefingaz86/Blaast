@@ -978,97 +978,157 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
               </div>
             </aside>
 
-            <div className="relative z-0 isolate grid min-w-0 flex-1 grid-cols-1 gap-5 sm:grid-cols-2">
-              {sortedFlows.map((flow) => {
-                return (
-                  <button
-                    key={flow.id}
-                    type="button"
-                    onClick={() => {
-                      setFlowStepId(undefined);
-                      setFlowCarousel(flow);
-                    }}
-                    className="group text-left"
+            <div className="relative z-0 isolate flex min-w-0 flex-1 flex-col gap-5">
+              {(() => {
+                const brandJourney =
+                  sortedFlows.find((f) => f.id.endsWith("-brand-journey")) ??
+                  sortedFlows.find((f) => /brand journey/i.test(f.name));
+                const rest = brandJourney
+                  ? sortedFlows.filter((f) => f.id !== brandJourney.id)
+                  : sortedFlows;
+
+                const flowPath = (flow: (typeof sortedFlows)[number]) =>
+                  `${flow.steps
+                    .map((s) => s.label)
+                    .slice(0, 6)
+                    .join(" → ")}${flow.steps.length > 6 ? " → …" : ""}`;
+
+                const stepMosaic = (
+                  flow: (typeof sortedFlows)[number],
+                  opts?: { featured?: boolean },
+                ) => (
+                  <div
+                    className={cn(
+                      "pointer-events-none grid gap-1",
+                      flow.steps.length >= 4
+                        ? "grid-cols-4"
+                        : flow.steps.length === 3
+                          ? "grid-cols-3"
+                          : flow.steps.length === 2
+                            ? "grid-cols-2"
+                            : "grid-cols-1",
+                      opts?.featured && "sm:gap-1.5",
+                    )}
                   >
-                    <div className="lib-card relative overflow-hidden rounded-[28px] p-4 sm:p-5">
-                      <span className="absolute top-3 left-3 z-10 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-neutral-200">
-                        {flow.steps.length} steps
-                      </span>
-                      <span className="absolute top-1/2 right-3 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 opacity-0 transition-opacity group-hover:opacity-100">
-                        <ChevronRight className="size-4" />
-                      </span>
-                      {/* Static journey stills — video only when the flow is opened */}
-                      <div
-                        className={cn(
-                          "pointer-events-none grid gap-1",
-                          flow.steps.length >= 4
-                            ? "grid-cols-4"
-                            : flow.steps.length === 3
-                              ? "grid-cols-3"
-                              : flow.steps.length === 2
-                                ? "grid-cols-2"
-                                : "grid-cols-1",
-                        )}
-                      >
-                        {flow.steps.slice(0, 8).map((s, i) => {
-                          const src =
-                            s.posterUrl ||
-                            (!s.email ? flow.posterUrl : undefined) ||
-                            (!s.email ? operator.posterUrl : undefined);
-                          return (
-                            <div
-                              key={s.id}
-                              className={cn(
-                                "overflow-hidden bg-neutral-900 ring-1 ring-white/10",
-                                isMobile
-                                  ? "aspect-[9/19] rounded-lg"
-                                  : "aspect-[16/10] rounded-xl",
-                              )}
-                            >
-                              {src ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  alt=""
-                                  src={src}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => {
-                                    (
-                                      e.currentTarget as HTMLImageElement
-                                    ).style.display = "none";
-                                  }}
-                                />
-                              ) : s.videoUrl ? (
-                                <CaptureMedia
-                                  videoUrl={s.videoUrl}
-                                  clipWindow={s.clipWindow}
-                                  label={s.label}
-                                  playOnHover={false}
-                                  hovering={false}
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center text-[10px] text-white/30">
-                                  {s.email ? "Email" : i + 1}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div className="mt-2.5 px-0.5">
-                      <p className="text-[13px] font-medium text-white">
-                        {flow.name}
-                      </p>
-                      <p className="text-[12px] text-neutral-500">
-                        {flow.steps.map((s) => s.label).slice(0, 6).join(" → ")}
-                        {flow.steps.length > 6 ? " → …" : ""}
-                      </p>
-                    </div>
-                  </button>
+                    {flow.steps
+                      .slice(0, opts?.featured ? 12 : 8)
+                      .map((s, i) => {
+                        const src =
+                          s.posterUrl ||
+                          (!s.email ? flow.posterUrl : undefined) ||
+                          (!s.email ? operator.posterUrl : undefined);
+                        return (
+                          <div
+                            key={s.id}
+                            className={cn(
+                              "overflow-hidden bg-neutral-900 ring-1 ring-white/10",
+                              isMobile
+                                ? "aspect-[9/19] rounded-lg"
+                                : "aspect-[16/10] rounded-xl",
+                            )}
+                          >
+                            {src ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                alt=""
+                                src={src}
+                                loading="lazy"
+                                decoding="async"
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (
+                                    e.currentTarget as HTMLImageElement
+                                  ).style.display = "none";
+                                }}
+                              />
+                            ) : s.videoUrl ? (
+                              <CaptureMedia
+                                videoUrl={s.videoUrl}
+                                clipWindow={s.clipWindow}
+                                label={s.label}
+                                playOnHover={false}
+                                hovering={false}
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-[10px] text-white/30">
+                                {s.email ? "Email" : i + 1}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
                 );
-              })}
+
+                return (
+                  <>
+                    {brandJourney && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFlowStepId(undefined);
+                          setFlowCarousel(brandJourney);
+                        }}
+                        className="group w-full text-left"
+                      >
+                        <div className="lib-card relative overflow-hidden rounded-[28px] p-5 sm:p-6">
+                          <div className="mb-4 flex items-start justify-between gap-3 pr-10">
+                            <div className="min-w-0">
+                              <p className="text-[18px] font-semibold tracking-tight text-white sm:text-[20px]">
+                                {brandJourney.name}
+                              </p>
+                              <p className="mt-1 text-[12px] text-neutral-500 sm:text-[13px]">
+                                {flowPath(brandJourney)}
+                              </p>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-[10px] text-neutral-200">
+                              {brandJourney.steps.length} steps
+                            </span>
+                          </div>
+                          <span className="absolute top-5 right-5 z-10 flex size-9 items-center justify-center rounded-full bg-white/90 text-neutral-950 opacity-0 transition-opacity group-hover:opacity-100">
+                            <ChevronRight className="size-4" />
+                          </span>
+                          {stepMosaic(brandJourney, { featured: true })}
+                        </div>
+                      </button>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                      {rest.map((flow) => (
+                        <button
+                          key={flow.id}
+                          type="button"
+                          onClick={() => {
+                            setFlowStepId(undefined);
+                            setFlowCarousel(flow);
+                          }}
+                          className="group text-left"
+                        >
+                          <div className="lib-card relative overflow-hidden rounded-[28px] p-4 sm:p-5">
+                            <div className="mb-3 flex items-start justify-between gap-2 pr-8">
+                              <div className="min-w-0">
+                                <p className="text-[13px] font-medium text-white">
+                                  {flow.name}
+                                </p>
+                                <p className="mt-0.5 text-[12px] text-neutral-500">
+                                  {flowPath(flow)}
+                                </p>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-neutral-200">
+                                {flow.steps.length} steps
+                              </span>
+                            </div>
+                            <span className="absolute top-4 right-3 z-10 flex size-9 items-center justify-center rounded-full bg-white/90 text-neutral-950 opacity-0 transition-opacity group-hover:opacity-100">
+                              <ChevronRight className="size-4" />
+                            </span>
+                            {stepMosaic(flow)}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
