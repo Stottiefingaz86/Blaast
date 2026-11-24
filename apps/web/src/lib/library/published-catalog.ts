@@ -487,15 +487,23 @@ function expandJourneySteps(
       momentsForParent(s.coverageStepId, moments),
     );
     const firstMomentMs = formMoments[0]?.atMs;
-    const form = formRaw.map((s) => ({
-      ...s,
-      label: "Form filled",
-      clipWindow:
-        s.clipWindow ??
-        (firstMomentMs != null && firstMomentMs > 1500
-          ? { startMs: 500, endMs: Math.max(2500, firstMomentMs - 800) }
-          : { startMs: 500, endMs: 20000 }),
-    }));
+    const form = formRaw.map((s) => {
+      // Prefer a later window — early seconds of signup clips are usually still Home
+      const end =
+        s.clipWindow?.endMs ??
+        (firstMomentMs != null && firstMomentMs > 2500
+          ? firstMomentMs - 400
+          : 22000);
+      const start =
+        s.clipWindow?.startMs != null && s.clipWindow.startMs >= 2500
+          ? s.clipWindow.startMs
+          : Math.max(4500, Math.round(end * 0.35));
+      return {
+        ...s,
+        label: "Form filled",
+        clipWindow: { startMs: start, endMs: Math.max(start + 2500, end) },
+      };
+    });
     return [
       ...open,
       ...form,
@@ -690,10 +698,32 @@ function buildCoreFlows(
   }
 
   // Brand storyboard = precise expanded journeys in site path order (MCP-ready)
+  // Onboarding emails are already inside the signup flow steps when present.
   const brandFlowSteps = LIBRARY_FLOW_JOURNEYS.flatMap((j) => {
     const f = flows.find((x) => x.journey === j);
     return f?.steps ?? [];
   });
+  // If signup capture exists but emails weren't expanded (edge), splice them
+  // after Form filled / Open sign up so Brand journey always shows verify/welcome.
+  const hasEmailStep = brandFlowSteps.some((s) => Boolean(s.email));
+  if (researchEmails.length > 0 && !hasEmailStep) {
+    const emailSteps = emailFlowSteps(researchEmails);
+    const afterForm = brandFlowSteps.findIndex((s) =>
+      /form filled|sign-?up steps|open sign/i.test(s.label),
+    );
+    const insertAt =
+      afterForm >= 0
+        ? afterForm + 1
+        : Math.max(
+            0,
+            brandFlowSteps.findIndex((s) => /login|casino|deposit/i.test(s.label)),
+          );
+    brandFlowSteps.splice(
+      insertAt >= 0 ? insertAt : brandFlowSteps.length,
+      0,
+      ...emailSteps,
+    );
+  }
   if (brandFlowSteps.length >= 2) {
     flows.unshift({
       id: `${slugHost(host)}-brand-journey`,

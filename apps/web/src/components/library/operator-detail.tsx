@@ -48,6 +48,7 @@ import {
   subscribeCollections,
   toggleFavorite,
 } from "@/lib/library/collections-store";
+import { stepThumbSeekSec } from "@/lib/library/step-thumb";
 import { useMcpAccess } from "@/lib/platform/mcp-access";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1013,18 +1014,12 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
                     {flow.steps
                       .slice(0, opts?.featured ? 12 : 8)
                       .map((s, i) => {
-                        const src =
-                          s.posterUrl ||
-                          (!s.videoUrl && !s.email
-                            ? flow.posterUrl
-                            : undefined) ||
-                          (!s.videoUrl && !s.email
-                            ? operator.posterUrl
-                            : undefined);
-                        const thumbAt = Math.max(
-                          0.2,
-                          (s.clipWindow?.startMs ?? s.atMs ?? 400) / 1000,
-                        );
+                        const thumbAt = stepThumbSeekSec(s);
+                        const poster = !s.videoUrl
+                          ? s.posterUrl ||
+                            (!s.email ? flow.posterUrl : undefined) ||
+                            (!s.email ? operator.posterUrl : undefined)
+                          : s.posterUrl;
                         return (
                           <div
                             key={s.id}
@@ -1035,11 +1030,20 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
                                 : "aspect-[16/10] rounded-xl",
                             )}
                           >
-                            {src ? (
+                            {s.videoUrl ? (
+                              <video
+                                key={`${s.id}-${thumbAt}`}
+                                src={`${s.videoUrl}#t=${thumbAt.toFixed(2)}`}
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : poster ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 alt=""
-                                src={src}
+                                src={poster}
                                 loading="lazy"
                                 decoding="async"
                                 className="h-full w-full object-cover"
@@ -1048,14 +1052,6 @@ export function OperatorDetail({ operator }: { operator: CatalogOperator }) {
                                     e.currentTarget as HTMLImageElement
                                   ).style.display = "none";
                                 }}
-                              />
-                            ) : s.videoUrl ? (
-                              <video
-                                src={`${s.videoUrl}#t=${thumbAt.toFixed(2)}`}
-                                muted
-                                playsInline
-                                preload="metadata"
-                                className="h-full w-full object-cover"
                               />
                             ) : (
                               <div className="flex h-full items-center justify-center text-[10px] text-white/30">

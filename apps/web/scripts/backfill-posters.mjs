@@ -117,7 +117,9 @@ async function extractStill(webmPath, pngPath, atMs) {
 }
 
 async function main() {
-  const onlyHost = process.argv[2]?.toLowerCase(); // e.g. rainbet.com
+  const args = process.argv.slice(2);
+  const force = args.includes("--force");
+  const onlyHost = args.find((a) => !a.startsWith("--"))?.toLowerCase(); // e.g. rainbet.com
   const rows = await fetchIndex();
   const work = [];
   for (const rec of rows) {
@@ -127,8 +129,9 @@ async function main() {
     const videoPath = rec.videoPath;
     if (!videoPath || /^https?:/i.test(videoPath)) continue;
     const hasPoster =
-      (rec.posterUrl && /^https?:/i.test(rec.posterUrl)) ||
-      (rec.posterPath && (await objectExists(rec.posterPath)));
+      !force &&
+      ((rec.posterUrl && /^https?:/i.test(rec.posterUrl)) ||
+        (rec.posterPath && (await objectExists(rec.posterPath))));
     const hasVideo =
       (rec.videoUrl && /^https?:/i.test(rec.videoUrl)) ||
       (await objectExists(videoPath));
@@ -159,7 +162,16 @@ async function main() {
       const vidRes = await fetch(publicObject(videoPath));
       if (!vidRes.ok) throw new Error(`download ${vidRes.status}`);
       await fs.writeFile(localWebm, Buffer.from(await vidRes.arrayBuffer()));
-      const atMs = rec.clipWindow?.startMs ?? 800;
+      // Prefer a later frame — signup/event clips often still show Home at t=0
+      const start = rec.clipWindow?.startMs ?? 0;
+      const end = rec.clipWindow?.endMs ?? start + 12000;
+      const span = Math.max(800, end - start);
+      const step = String(rec.coverageStepId || rec.instruction || "");
+      let atMs = start + span * 0.45;
+      if (/signup-steps|register|form/i.test(step)) atMs = start + span * 0.7;
+      else if (/bet-event|lobby|game|betslip|promo|vip/i.test(step))
+        atMs = start + span * 0.4;
+      else if (!rec.clipWindow) atMs = 2500;
       const extracted = await extractStill(localWebm, localPng, atMs);
       if (!extracted) throw new Error("ffmpeg empty");
       const bytes = await fs.readFile(localPng);

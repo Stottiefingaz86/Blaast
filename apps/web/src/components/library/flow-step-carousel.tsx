@@ -33,6 +33,7 @@ import {
   copyImageAsPng,
   downloadImageUrl,
 } from "@/lib/library/media-actions";
+import { stepThumbSeekMs, stepThumbSeekSec } from "@/lib/library/step-thumb";
 import { useMcpAccess } from "@/lib/platform/mcp-access";
 import { cn } from "@/lib/utils";
 
@@ -405,11 +406,13 @@ export function FlowStepCarousel({
                   ) : (
                     <>
                       <CaptureMedia
-                        key={current.id}
+                        key={`${current.id}-${stepThumbSeekSec(current)}`}
                         posterUrl={
-                          current.posterUrl ??
-                          flow.posterUrl ??
-                          operator.posterUrl
+                          current.videoUrl
+                            ? current.posterUrl
+                            : current.posterUrl ??
+                              flow.posterUrl ??
+                              operator.posterUrl
                         }
                         // Always pass video so missing posters still show a frame
                         videoUrl={
@@ -417,9 +420,22 @@ export function FlowStepCarousel({
                           flow.videoUrl ??
                           operator.videoUrl
                         }
-                        atMs={current.atMs}
+                        atMs={current.atMs ?? stepThumbSeekMs(current)}
                         region={current.region}
-                        clipWindow={current.clipWindow}
+                        clipWindow={
+                          current.clipWindow
+                            ? {
+                                ...current.clipWindow,
+                                startMs: Math.max(
+                                  current.clipWindow.startMs,
+                                  stepThumbSeekMs(current) - 400,
+                                ),
+                              }
+                            : {
+                                startMs: stepThumbSeekMs(current),
+                                endMs: stepThumbSeekMs(current) + 5000,
+                              }
+                        }
                         label={`${safeStep + 1}. ${current.label}`}
                         playOnHover={false}
                         hovering={playing}
@@ -472,15 +488,12 @@ export function FlowStepCarousel({
             <ul className="flex gap-2.5 overflow-x-auto px-1 py-2">
               {flow.steps.map((s, i) => {
                 const active = i === safeStep;
-                const poster =
-                  s.posterUrl ||
-                  (!s.videoUrl ? flow.posterUrl : undefined) ||
-                  (!s.videoUrl ? operator.posterUrl : undefined);
                 const video = s.videoUrl;
-                const thumbAt = Math.max(
-                  0.2,
-                  (s.clipWindow?.startMs ?? s.atMs ?? 400) / 1000,
-                );
+                const poster = !video
+                  ? s.posterUrl || flow.posterUrl || operator.posterUrl
+                  : s.posterUrl;
+                // Prefer video seek — baked posters often capture Home at t≈0
+                const thumbAt = stepThumbSeekSec(s);
                 return (
                   <li key={s.id} className="shrink-0 p-0.5">
                     <button
@@ -498,19 +511,20 @@ export function FlowStepCarousel({
                     >
                       <div className="overflow-hidden rounded-[10px]">
                         <div className="aspect-[16/10] bg-[#111]">
-                          {poster ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              alt=""
-                              src={poster}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : video ? (
+                          {video ? (
                             <video
+                              key={`${s.id}-${thumbAt}`}
                               src={`${video}#t=${thumbAt.toFixed(2)}`}
                               muted
                               playsInline
                               preload="metadata"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : poster ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              alt=""
+                              src={poster}
                               className="h-full w-full object-cover"
                             />
                           ) : null}
