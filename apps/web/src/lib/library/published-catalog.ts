@@ -1,6 +1,7 @@
 import { coverageStepById, FLOW_LABELS } from "@/lib/admin/coverage-pack";
 import { listPublishedClips, type PublishedClipRecord } from "@/lib/evidence/publish";
 import type {
+  CatalogEmail,
   CatalogFlow,
   CatalogOperator,
   CatalogScreen,
@@ -9,13 +10,23 @@ import type {
 } from "@/lib/library/catalog";
 import {
   categoryForJourney,
+  compareByJourneyOrder,
+  flowSectionForJourney,
   formatCategories,
   journeyForStep,
+  LIBRARY_FLOW_JOURNEYS,
   JOURNEY_LABELS,
   type JourneyId,
   type LibraryCategory,
 } from "@/lib/library/journeys";
 import { logoSrc } from "@/lib/marketing/operator-logos";
+import {
+  emailStepLabel,
+  loadResearchEmailsForHost,
+  onboardingEmails,
+  type ResearchEmail,
+} from "@/lib/research/emails";
+import { artifactPublicUrl } from "@/lib/storage/public-url";
 
 /**
  * Library surface — curated beats only (Mobbin-style).
@@ -36,6 +47,8 @@ export const CORE_LIBRARY_STEPS: Record<
   "scr-register": { title: "Sign up", slot: "screen", order: 3 },
   "flow-signup-steps": { title: "Sign-up steps", slot: "flow", order: 4 },
   "flow-signup-complete": { title: "After sign up", slot: "flow", order: 5 },
+  "flow-signup-email-verify": { title: "Verify email", slot: "flow", order: 5.5 },
+  "flow-signup-email-welcome": { title: "Welcome email", slot: "flow", order: 5.6 },
   "scr-deposit": { title: "Deposit", slot: "screen", order: 6 },
   "flow-deposit-amount": { title: "Deposit amount", slot: "flow", order: 7 },
   "scr-login": { title: "Login", slot: "screen", order: 8 },
@@ -154,29 +167,25 @@ function surfaceKind(taxonomy: string, tags: string[]): SurfaceKind {
   return "sportsbook";
 }
 
-function mediaUrls(rec: PublishedClipRecord, origin: string) {
-  const base = `${origin}/api/library/media/${rec.sessionId}/${rec.artifactId}`;
-  // Bust browser cache when trim (In) changes so tiles show the new still
-  const bust =
-    rec.clipWindow?.startMs != null
-      ? `&t=${Math.round(rec.clipWindow.startMs)}`
-      : "";
-  // Prefer cloud Storage URLs — Vercel has no local .data captures for the proxy path
+function mediaUrls(rec: PublishedClipRecord, _origin: string) {
+  // Prefer direct Supabase CDN — never /api/library/media on Vercel (no local files).
   const cloudPoster = rec.posterUrl?.startsWith("http")
     ? rec.posterUrl
-    : undefined;
+    : artifactPublicUrl(rec.posterPath);
   const cloudVideo = rec.videoUrl?.startsWith("http")
     ? rec.videoUrl
-    : undefined;
+    : artifactPublicUrl(rec.videoPath);
+  const bustMs =
+    rec.clipWindow?.startMs != null
+      ? Math.round(rec.clipWindow.startMs)
+      : null;
   return {
-    posterUrl:
-      cloudPoster ??
-      (rec.posterPath || cloudVideo || rec.videoPath
-        ? `${base}?file=poster${bust}`
-        : undefined),
-    videoUrl:
-      cloudVideo ??
-      (rec.videoPath ? `${base}?file=video` : undefined),
+    posterUrl: cloudPoster
+      ? bustMs != null
+        ? `${cloudPoster}${cloudPoster.includes("?") ? "&" : "?"}t=${bustMs}`
+        : cloudPoster
+      : undefined,
+    videoUrl: cloudVideo,
   };
 }
 
@@ -236,30 +245,35 @@ export async function listLibraryMedia(
       ...meta,
     });
 
-    // Annotation segments — searchable moments (Popular slots, etc.)
+    // Annotation segments → UI Elements (animation, loader, VIP block, …).
+    // Untimed tags still publish (default a short window) so Tag-on-desk works.
     for (const ann of rec.annotations ?? []) {
       if (ann.publishElement === false) continue;
-      if (!ann.region && ann.atMs == null && !ann.clipWindow) continue;
+      if (!ann.tag && !ann.label) continue;
       const curated = curatedTagMeta(ann.tag);
       const title =
         ann.label?.trim() && ann.label !== ann.tag
           ? ann.label
-          : (curated?.title ?? ann.label);
+          : (curated?.title ??
+            ann.label ??
+            ann.tag.replace(/_/g, " "));
       const trimStart =
         ann.clipWindow?.startMs ??
-        (ann.atMs != null ? Math.max(0, ann.atMs - 400) : undefined);
-      const baseMedia = `${origin}/api/library/media/${rec.sessionId}/${rec.artifactId}`;
-      const annPoster = ann.posterPath
-        ? `${baseMedia}?file=poster&ann=${encodeURIComponent(ann.id)}`
-        : trimStart != null
-          ? `${baseMedia}?file=poster&t=${Math.round(trimStart)}`
-          : media.posterUrl;
-      const annTags = [...new Set([ann.tag, ...rec.tags])];
+        (ann.atMs != null ? Math.max(0, ann.atMs - 400) : 0);
+      const annPoster =
+        artifactPublicUrl(ann.posterPath) ??
+        media.posterUrl ??
+        (media.videoUrl
+          ? undefined // CaptureMedia will show video frame at atMs
+          : undefined);
+      // Primary tag only — do not inherit parent journey tags (broke Animation filter)
+      const annTags = [ann.tag].filter(Boolean);
+      // Parent coverage journey wins — keeps Rewards hub / VIP moments on Loyalty
       const annMeta = journeyMeta(
         rec.coverageStepId,
-        annTags,
+        [ann.tag, ...(rec.tags ?? [])],
         cov?.flowId,
-        true,
+        false,
       );
       const category =
         (ann.enrichCategory as LibraryCategory | undefined) ??
@@ -277,20 +291,18 @@ export async function listLibraryMedia(
         kind: kindFromCategory(category),
         taxonomy: "ui_element",
         tags: annTags,
-      hasVideo: Boolean(media.videoUrl),
-      posterUrl: annPoster,
-      videoUrl: media.videoUrl,
+        hasVideo: Boolean(media.videoUrl),
+        posterUrl: annPoster || media.posterUrl,
+        videoUrl: media.videoUrl,
         elementLabel: title,
-        atMs: ann.atMs,
+        atMs: ann.atMs ?? trimStart,
         region: ann.region,
         clipWindow:
           ann.clipWindow ??
-          (ann.atMs != null
-            ? {
-                startMs: Math.max(0, ann.atMs - 400),
-                endMs: ann.atMs + 2500,
-              }
-            : undefined),
+          {
+            startMs: Math.max(0, (ann.atMs ?? 0) - (ann.atMs != null ? 400 : 0)),
+            endMs: (ann.atMs ?? 0) + 2500,
+          },
         durationMs: rec.durationMs,
         sessionId: rec.sessionId,
         artifactId: rec.artifactId,
@@ -307,64 +319,401 @@ export async function listLibraryMedia(
   return items.sort((a, b) => b.id.localeCompare(a.id));
 }
 
+function emailFlowSteps(emails: ResearchEmail[]): CatalogFlow["steps"] {
+  return emails.map((e) => ({
+    id: `email-${e.id}`,
+    label: emailStepLabel(e),
+    kind: "account" as const,
+    posterUrl: e.posterUrl,
+    evidenceId: e.id,
+    email: {
+      subject: e.subject,
+      from: e.from,
+      receivedAt: e.receivedAt,
+      category: e.category,
+      snippet: e.snippet,
+      html: e.html,
+    },
+  }));
+}
+
+/**
+ * Precise beat labels for MCP / flow theater — tagged moments become named steps.
+ * Keys are annotation tags (normalized).
+ */
+const JOURNEY_MOMENT_LABELS: Record<string, string> = {
+  // Onboarding
+  error: "Error alert",
+  alert: "Error alert",
+  toast: "Error alert",
+  animation: "Submit animation",
+  motion: "Submit animation",
+  loader: "Loading",
+  spinner: "Loading",
+  form: "Form filled",
+  // Play casino
+  casino_stats: "Game details",
+  game_info: "Game details",
+  full_screen_game: "Full-screen game",
+  mini_casino_game_launcher: "Mini player",
+  mini_game_launcher: "Mini player",
+  game_launch: "Launch game",
+  // Loyalty & Rewards
+  rewards_hub: "Rewards hub",
+  rewards_page: "Rewards page",
+  vip_page: "VIP page",
+  promo_card: "Claim CTA",
+  promotions: "Promotions",
+  // Sports
+  sports_homepage: "Sports home",
+  event_view: "Event view",
+  live_scoreboard: "Live scoreboard",
+  match_tracker: "Match tracker",
+  closed_betslip: "Closed betslip",
+  single_bet: "Single bet",
+  "combo,_parlay,_acca": "Combo / parlay",
+  same_game_parlays_acca: "Same game parlay",
+  "same_game_parlays,_acca": "Same game parlay",
+};
+
+/** Parents replaced entirely by their tagged moments (sparse overview clips). */
+const REPLACE_PARENT_WITH_MOMENTS = new Set([
+  "scr-vip",
+  "flow-game-launch",
+]);
+
+function momentLabel(tag: string, title: string): string | null {
+  const key = tag.toLowerCase().replace(/\s+/g, "_");
+  if (JOURNEY_MOMENT_LABELS[key]) return JOURNEY_MOMENT_LABELS[key]!;
+  const t = `${tag} ${title}`.toLowerCase();
+  if (/error|alert|toast|validation/.test(t)) return "Error alert";
+  if (/animation|motion/.test(t)) return "Submit animation";
+  if (/loader|spinner/.test(t)) return "Loading";
+  if (/verify|confirm.?email/.test(t)) return "Verify page";
+  if (/form|field|filled/.test(t)) return "Form filled";
+  if (/mini.?player|mini.?game|mini.?casino/.test(t)) return "Mini player";
+  if (/full.?screen/.test(t)) return "Full-screen game";
+  if (/rewards.?hub/.test(t)) return "Rewards hub";
+  if (/rewards.?page/.test(t)) return "Rewards page";
+  if (/vip.?page/.test(t)) return "VIP page";
+  return null;
+}
+
+function toMomentStep(m: LibraryMediaItem, label: string): CatalogFlow["steps"][number] {
+  const start =
+    m.clipWindow?.startMs ??
+    (m.atMs != null ? Math.max(0, m.atMs - 400) : 0);
+  const end =
+    m.clipWindow?.endMs ??
+    (m.atMs != null ? m.atMs + 2800 : start + 2800);
+  return {
+    id: m.id,
+    label,
+    kind: m.kind,
+    posterUrl: m.posterUrl,
+    videoUrl: m.videoUrl,
+    atMs: m.atMs ?? start,
+    clipWindow: { startMs: start, endMs: end },
+    evidenceId: m.evidenceId,
+    coverageStepId: m.coverageStepId,
+  };
+}
+
+function momentsForParent(
+  parentCoverageId: string | undefined,
+  moments: LibraryMediaItem[],
+): CatalogFlow["steps"] {
+  if (!parentCoverageId) return [];
+  const seen = new Set<string>();
+  const out: CatalogFlow["steps"] = [];
+  const sorted = moments
+    .filter(
+      (m) =>
+        m.annotationId &&
+        m.videoUrl &&
+        m.coverageStepId === parentCoverageId,
+    )
+    .sort((a, b) => (a.atMs ?? 0) - (b.atMs ?? 0));
+  for (const m of sorted) {
+    const tag = m.tags?.[0] ?? "";
+    const label = momentLabel(tag, m.title);
+    if (!label) continue;
+    const bucket = Math.round((m.atMs ?? 0) / 2500);
+    const motion =
+      label === "Loading" || label === "Submit animation";
+    const key = motion ? `motion:${bucket}` : `${label}:${bucket}`;
+    if (label === "Submit animation") {
+      const idx = out.findIndex(
+        (s) =>
+          s.label === "Loading" &&
+          Math.round((s.atMs ?? 0) / 2500) === bucket,
+      );
+      if (idx >= 0) {
+        out.splice(idx, 1);
+        seen.delete(`motion:${bucket}`);
+      }
+    }
+    if (seen.has(key)) continue;
+    if (label === "Loading" && seen.has(`motion:${bucket}`)) continue;
+    // One mini-player beat per parent clip (launcher + player tags collapse)
+    if (label === "Mini player" && out.some((s) => s.label === "Mini player")) {
+      continue;
+    }
+    seen.add(key);
+    out.push(toMomentStep(m, label));
+  }
+  return out;
+}
+
+/**
+ * Expand capture beats with timed tagged moments so MCP gets every precise step.
+ * VIP / launch parents that are “jumpy” overviews are replaced by their moments.
+ */
+function expandJourneySteps(
+  journey: JourneyId,
+  captureSteps: CatalogFlow["steps"],
+  moments: LibraryMediaItem[],
+  emails: ResearchEmail[] = [],
+): CatalogFlow["steps"] {
+  if (journey === "signup") {
+    const open = captureSteps.filter((s) => /open sign/i.test(s.label));
+    const formRaw = captureSteps.filter((s) =>
+      /sign-up steps|^sign up$|register/i.test(s.label),
+    );
+    const after = captureSteps.filter((s) => /after sign/i.test(s.label));
+    const used = new Set([...open, ...formRaw, ...after].map((s) => s.id));
+    const rest = captureSteps.filter((s) => !used.has(s.id));
+    const formMoments = formRaw.flatMap((s) =>
+      momentsForParent(s.coverageStepId, moments),
+    );
+    const firstMomentMs = formMoments[0]?.atMs;
+    const form = formRaw.map((s) => ({
+      ...s,
+      label: "Form filled",
+      clipWindow:
+        s.clipWindow ??
+        (firstMomentMs != null && firstMomentMs > 1500
+          ? { startMs: 500, endMs: Math.max(2500, firstMomentMs - 800) }
+          : { startMs: 500, endMs: 20000 }),
+    }));
+    return [
+      ...open,
+      ...form,
+      ...formMoments,
+      ...emailFlowSteps(emails),
+      ...after,
+      ...rest.flatMap((s) => {
+        const kids = momentsForParent(s.coverageStepId, moments);
+        return kids.length ? [...(REPLACE_PARENT_WITH_MOMENTS.has(s.coverageStepId ?? "") ? [] : [s]), ...kids] : [s];
+      }),
+    ];
+  }
+
+  const out: CatalogFlow["steps"] = [];
+  for (const step of captureSteps) {
+    const kids = momentsForParent(step.coverageStepId, moments);
+    const replace =
+      kids.length > 0 &&
+      REPLACE_PARENT_WITH_MOMENTS.has(step.coverageStepId ?? "");
+
+    if (replace) {
+      // Keep a short “entry” beat then the precise tagged steps
+      const first = kids[0]!;
+      const entryEnd = Math.max(1200, (first.atMs ?? 2000) - 600);
+      out.push({
+        ...step,
+        label:
+          step.coverageStepId === "scr-vip"
+            ? "Rewards entry"
+            : step.coverageStepId === "flow-game-launch"
+              ? "Launch game"
+              : step.label,
+        clipWindow: { startMs: 0, endMs: entryEnd },
+        atMs: 0,
+      });
+      out.push(...kids);
+      continue;
+    }
+
+    if (kids.length > 0) {
+      const first = kids[0]!;
+      const trimmedEnd = Math.max(1500, (first.atMs ?? 4000) - 500);
+      out.push({
+        ...step,
+        clipWindow:
+          step.clipWindow ??
+          (first.atMs != null
+            ? { startMs: 0, endMs: trimmedEnd }
+            : step.clipWindow),
+      });
+      out.push(...kids);
+      continue;
+    }
+
+    out.push(step);
+  }
+
+  // Orphan moments for this journey (tag mapped, parent beat not in capture list)
+  const usedIds = new Set(out.map((s) => s.id));
+  const orphans = moments
+    .filter(
+      (m) =>
+        m.annotationId &&
+        m.videoUrl &&
+        m.journey === journey &&
+        !usedIds.has(m.id) &&
+        !captureSteps.some((s) => s.coverageStepId === m.coverageStepId),
+    )
+    .sort((a, b) => (a.atMs ?? 0) - (b.atMs ?? 0));
+  for (const m of orphans) {
+    const label = momentLabel(m.tags?.[0] ?? "", m.title);
+    if (!label || usedIds.has(m.id)) continue;
+    out.push(toMomentStep(m, label));
+    usedIds.add(m.id);
+  }
+
+  return out;
+}
+
 function buildCoreFlows(
   host: string,
   coreItems: LibraryMediaItem[],
+  researchEmails: ResearchEmail[] = [],
+  annotationMoments: LibraryMediaItem[] = [],
 ): CatalogFlow[] {
-  // Flows = screen + flow beats (lobby → pick → launch). Pure chrome stays on UI.
+  // Flows = screen + flow beats, merged into one CatalogFlow per Scuup journey.
   const journeyItems = coreItems.filter((b) => {
     const slot = CORE_LIBRARY_STEPS[b.coverageStepId ?? ""]?.slot;
     return slot === "screen" || slot === "flow";
   });
-  const byFlow = new Map<string, LibraryMediaItem[]>();
+  const byJourney = new Map<JourneyId, LibraryMediaItem[]>();
   for (const b of journeyItems) {
-    const fid = b.flowId || "published";
-    const list = byFlow.get(fid) ?? [];
+    const journey = (b.journey ?? "cross") as JourneyId;
+    // Pure global chrome belongs on UI Elements, not Flows.
+    if (journey === "cross") continue;
+    const list = byJourney.get(journey) ?? [];
     list.push(b);
-    byFlow.set(fid, list);
+    byJourney.set(journey, list);
   }
 
   const flows: CatalogFlow[] = [];
-  for (const [fid, list] of byFlow) {
-    const pack = FLOW_LABELS[fid];
-    const journey = list[0]?.journey ?? "cross";
-    const meta = pack ?? {
-      name: JOURNEY_LABELS[journey] ?? fid.replaceAll("_", " "),
-      group: categoryForJourney(journey),
-      actions: ["Browse"],
-    };
+  for (const [journey, list] of byJourney) {
     const ordered = [...list].sort((a, b) => {
       const oa = CORE_LIBRARY_STEPS[a.coverageStepId ?? ""]?.order ?? 99;
       const ob = CORE_LIBRARY_STEPS[b.coverageStepId ?? ""]?.order ?? 99;
-      return oa - ob;
+      if (oa !== ob) return oa - ob;
+      return a.id.localeCompare(b.id);
     });
     const first = ordered[0]!;
-    // Prefer product category; map legacy "Cross" → "Home" for library chrome
-    const rawGroup = String(first.category || meta.group || "Home");
-    const group = rawGroup === "Cross" ? "Home" : rawGroup;
-    flows.push({
-      id: `${slugHost(host)}-${fid}`,
-      name: meta.name,
-      group,
-      actions: meta.actions,
+    const category = categoryForJourney(journey);
+    // Sidebar section = player path (Home → Onboarding → Cashier…), not product taxonomy
+    const group = flowSectionForJourney(journey);
+
+    // Prefer Scuup coverage pack actions when present; else ordered step titles.
+    const actionSet = new Set<string>();
+    for (const item of ordered) {
+      const pack = item.flowId ? FLOW_LABELS[item.flowId] : undefined;
+      if (pack?.actions?.length) {
+        for (const a of pack.actions) actionSet.add(a);
+      }
+    }
+    const actions =
+      actionSet.size > 0
+        ? [...actionSet]
+        : [
+            ...new Set(
+              ordered.map(
+                (i) =>
+                  CORE_LIBRARY_STEPS[i.coverageStepId ?? ""]?.title ?? i.title,
+              ),
+            ),
+          ];
+
+    const withVideo = ordered.find((i) => i.hasVideo && i.videoUrl);
+    const captureSteps = ordered.map((i) => ({
+      id: i.id,
+      label:
+        CORE_LIBRARY_STEPS[i.coverageStepId ?? ""]?.title ?? i.title,
+      kind: i.kind,
+      posterUrl: i.posterUrl,
+      videoUrl: i.hasVideo ? i.videoUrl : undefined,
+      evidenceId: i.evidenceId,
+      clipWindow: i.clipWindow,
+      coverageStepId: i.coverageStepId,
+    }));
+    // Precise journey: every tagged moment becomes an ordered step (MCP-ready)
+    const journeyMoments = annotationMoments.filter(
+      (m) =>
+        m.journey === journey ||
+        (m.coverageStepId != null &&
+          ordered.some((o) => o.coverageStepId === m.coverageStepId)),
+    );
+    const steps = expandJourneySteps(
       journey,
-      category: first.category,
-      hasVideo: ordered.some((i) => i.hasVideo),
-      posterUrl: first.posterUrl,
-      videoUrl: first.hasVideo ? first.videoUrl : undefined,
-      steps: ordered.map((i) => ({
-        id: i.id,
-        label: i.title,
-        kind: i.kind,
-        posterUrl: i.posterUrl,
-        videoUrl: i.hasVideo ? i.videoUrl : undefined,
-        evidenceId: i.evidenceId,
-        clipWindow: i.clipWindow,
-      })),
+      captureSteps,
+      journeyMoments,
+      journey === "signup" ? researchEmails : [],
+    );
+    const actionsFromSteps = steps.map((s) => s.label);
+
+    flows.push({
+      id: `${slugHost(host)}-${journey}`,
+      name: JOURNEY_LABELS[journey] ?? journey.replaceAll("_", " "),
+      group,
+      actions: [...new Set([...actionsFromSteps, ...actions])].slice(0, 12),
+      journey,
+      category,
+      hasVideo: ordered.some((i) => i.hasVideo) || steps.some((s) => s.videoUrl),
+      posterUrl: steps[0]?.posterUrl ?? first.posterUrl,
+      videoUrl: withVideo?.videoUrl ?? (first.hasVideo ? first.videoUrl : undefined),
+      steps,
     });
   }
 
-  return flows.sort((a, b) => a.name.localeCompare(b.name));
+  // Emails alone: still surface Onboarding when capture signup beats are missing
+  if (
+    researchEmails.length > 0 &&
+    !flows.some((f) => f.journey === "signup")
+  ) {
+    const emailSteps = emailFlowSteps(researchEmails);
+    flows.push({
+      id: `${slugHost(host)}-signup`,
+      name: JOURNEY_LABELS.signup,
+      group: flowSectionForJourney("signup"),
+      actions: researchEmails.map((e) => emailStepLabel(e)),
+      journey: "signup",
+      category: categoryForJourney("signup"),
+      hasVideo: false,
+      posterUrl: emailSteps[0]?.posterUrl,
+      steps: emailSteps,
+    });
+  }
+
+  // Brand storyboard = precise expanded journeys in site path order (MCP-ready)
+  const brandFlowSteps = LIBRARY_FLOW_JOURNEYS.flatMap((j) => {
+    const f = flows.find((x) => x.journey === j);
+    return f?.steps ?? [];
+  });
+  if (brandFlowSteps.length >= 2) {
+    flows.unshift({
+      id: `${slugHost(host)}-brand-journey`,
+      name: "Brand journey",
+      group: "Journey",
+      actions: brandFlowSteps.map((s) => s.label).slice(0, 16),
+      journey: "landing",
+      category: categoryForJourney("landing"),
+      hasVideo: brandFlowSteps.some((s) => Boolean(s.videoUrl)),
+      posterUrl: brandFlowSteps[0]?.posterUrl,
+      videoUrl: undefined,
+      steps: brandFlowSteps,
+    });
+  }
+
+  return flows.sort((a, b) => {
+    if (a.id.endsWith("-brand-journey")) return -1;
+    if (b.id.endsWith("-brand-journey")) return 1;
+    return compareByJourneyOrder(a, b);
+  });
 }
 
 /** Operator cards for discover — curated screens + UI (side nav, header, …). */
@@ -456,12 +805,17 @@ export async function catalogFromPublished(
     for (const a of tagCandidates) {
       const rawTag = a.tags[0] || "";
       const curated = curatedTagMeta(rawTag);
-      if (!curated) continue;
-      const title = a.elementLabel?.trim() || curated.title;
+      // Always surface tagged moments (animation / loader / custom) — curated
+      // titles preferred; otherwise use label or tag so filters can find them.
+      const title =
+        a.elementLabel?.trim() ||
+        curated?.title ||
+        rawTag.replace(/_/g, " ").trim();
+      if (!title) continue;
       const dedupe = momentDedupeKey(title, a.atMs);
       if (seenMoments.has(dedupe)) continue;
       seenMoments.add(dedupe);
-      const category = a.category || curated.category;
+      const category = a.category || curated?.category || "Cross";
       uiFromTags.push({
         id: a.id,
         name: title,
@@ -481,11 +835,11 @@ export async function catalogFromPublished(
         durationMs: a.durationMs,
         journey: a.journey,
         category,
-        parentScreen: curated.parentScreen,
+        parentScreen: curated?.parentScreen,
         tags: a.tags,
         searchText: tagSearchText(rawTag, {
           title,
-          synonyms: a.searchSynonyms,
+          synonyms: a.searchSynonyms ?? curated?.synonyms,
         }),
       });
     }
@@ -502,10 +856,17 @@ export async function catalogFromPublished(
       return oa - ob;
     });
 
-    const flows = buildCoreFlows(host, use.filter((i) => {
-      const slot = CORE_LIBRARY_STEPS[i.coverageStepId ?? ""]?.slot;
-      return slot !== "ui";
-    }));
+    const emailPack = await loadResearchEmailsForHost(host);
+    const onboardingMail = emailPack ? onboardingEmails(emailPack) : [];
+    const flows = buildCoreFlows(
+      host,
+      use.filter((i) => {
+        const slot = CORE_LIBRARY_STEPS[i.coverageStepId ?? ""]?.slot;
+        return slot !== "ui";
+      }),
+      onboardingMail,
+      anns,
+    );
     // Prefer a trimmed screen beat for the catalogue hero (not a black t=0 frame).
     // Casino lobby first when present (crypto/casino brands beat sports home).
     // Then betslip over full event view so sports covers stay element-true.
@@ -548,8 +909,9 @@ export async function catalogFromPublished(
         .filter(Boolean)
         .join(" · ") || "Published",
       category: formatCategories(cats),
-      rating: 5,
-      ratingCount: use.length,
+      // No community ratings yet — avoid hard-coded 5.0 / fake review counts
+      rating: 0,
+      ratingCount: 0,
       badge: "New",
       platform: first.platform,
       kind: primaryKind,
@@ -571,6 +933,20 @@ export async function catalogFromPublished(
           })),
       uiElements,
       flows,
+      emails: emailPack?.emails?.length
+        ? (emailPack.emails.map(
+            (e): CatalogEmail => ({
+              id: e.id,
+              subject: e.subject,
+              from: e.from,
+              receivedAt: e.receivedAt,
+              category: e.category,
+              snippet: e.snippet,
+              posterUrl: e.posterUrl,
+              html: e.html,
+            }),
+          ))
+        : undefined,
     });
   }
 

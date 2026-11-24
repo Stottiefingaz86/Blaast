@@ -59,6 +59,15 @@ export type CatalogUiElement = {
 
 // clipWindow on screens/UI drives library playback trim (admin “Trim for library”)
 
+export type FlowEmailMeta = {
+  subject: string;
+  from: string;
+  receivedAt: string;
+  category: string;
+  snippet?: string;
+  html?: string;
+};
+
 export type FlowStep = {
   id: string;
   label: string;
@@ -69,6 +78,10 @@ export type FlowStep = {
   region?: MediaRegion;
   clipWindow?: { startMs: number; endMs: number };
   evidenceId?: string;
+  /** Parent coverage beat — used to attach tagged moments precisely */
+  coverageStepId?: string;
+  /** CRM / lifecycle email captured into this journey step */
+  email?: FlowEmailMeta;
 };
 
 export type CatalogFlow = {
@@ -83,6 +96,17 @@ export type CatalogFlow = {
   /** Scuup journey key */
   journey?: string;
   category?: string;
+};
+
+export type CatalogEmail = {
+  id: string;
+  subject: string;
+  from: string;
+  receivedAt: string;
+  category: string;
+  snippet?: string;
+  posterUrl?: string;
+  html?: string;
 };
 
 export type CatalogOperator = {
@@ -110,6 +134,8 @@ export type CatalogOperator = {
   screens: CatalogScreen[];
   uiElements: CatalogUiElement[];
   flows: CatalogFlow[];
+  /** CRM / lifecycle emails from research inbox */
+  emails?: CatalogEmail[];
 };
 
 export const CATALOG: CatalogOperator[] = [

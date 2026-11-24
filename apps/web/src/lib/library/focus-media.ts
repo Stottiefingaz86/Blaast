@@ -32,23 +32,43 @@ const FOCUS_ALIASES: Record<string, string[]> = {
   "event view": ["event view", "event", "flow-bet-event"],
   "place a bet": ["place a bet", "add to betslip", "betslip"],
   "first deposit": ["deposit", "cashier"],
-  header: ["header"],
+  deposit: ["deposit", "cashier", "ftd"],
+  header: ["header", "header_nav", "nav"],
   "odds button": ["odds button", "odds"],
   "tab bar": ["tab bar", "tabbar"],
   "game card": ["game card"],
-  "activity feed": ["activity feed"],
+  "activity feed": ["activity feed", "activity_feed"],
   "method row": ["method row", "payment method"],
-  loader: ["loader"],
-  skeleton: ["skeleton"],
+  loader: ["loader", "ui-loader", "spinner"],
+  skeleton: ["skeleton", "loading_skeleton", "shimmer"],
+  // Exact motion tags only — do not alias to every loader/home clip
+  animation: ["animation", "motion", "transition"],
+  "rewards & vip": [
+    "rewards",
+    "vip",
+    "loyalty",
+    "scr-vip",
+    "vip_block",
+    "rewards",
+    "promo",
+    "bonus",
+  ],
+  rewards: ["rewards", "vip", "loyalty", "scr-vip", "vip_block"],
+  vip: ["vip", "rewards", "loyalty", "scr-vip", "vip_block"],
+  leaderboards: ["leaderboard", "leaderboards", "race", "races"],
+  races: ["race", "races", "leaderboard", "raffle"],
 };
 
 function needlesFor(focus: string): string[] {
   const chip = focus.trim().toLowerCase();
-  return (
+  const aliased =
     FOCUS_ALIASES[chip] ??
-    Object.entries(FOCUS_ALIASES).find(([k]) => chip.includes(k))?.[1] ??
-    [chip]
-  );
+    Object.entries(FOCUS_ALIASES).find(([k]) => chip.includes(k))?.[1];
+  const words = chip
+    .split(/[\s&/,+]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 1);
+  return [...new Set([...(aliased ?? [chip]), ...words, chip])];
 }
 
 function haystack(parts: Array<string | undefined>): string {
@@ -108,17 +128,22 @@ function pickBestScreen(
 function pickBestUi(
   elements: CatalogUiElement[],
   needles: string[],
+  opts?: { primaryTagOnly?: boolean },
 ): CatalogUiElement | undefined {
   let best: CatalogUiElement | undefined;
   let bestScore = 0;
   for (const el of elements) {
-    const text = haystack([
-      el.name,
-      el.searchText,
-      ...(el.tags ?? []),
-      el.journey,
-      el.id,
-    ]);
+    const text = haystack(
+      opts?.primaryTagOnly
+        ? [el.name, el.tags?.[0], el.id]
+        : [
+            el.name,
+            el.searchText,
+            ...(el.tags ?? []),
+            el.journey,
+            el.id,
+          ],
+    );
     const score = scoreMatch(
       text,
       el.name,
@@ -131,7 +156,9 @@ function pickBestUi(
       best = el;
     }
   }
-  return bestScore >= 60 ? best : undefined;
+  // Motion chips need a strong title/primary-tag hit (not weak synonym noise)
+  const min = opts?.primaryTagOnly ? 80 : 60;
+  return bestScore >= min ? best : undefined;
 }
 
 /**
@@ -152,10 +179,16 @@ export function resolveFocusHero(
   }
 
   const needles = needlesFor(chip);
+  const motionChip =
+    chip === "animation" || chip === "loader" || chip === "skeleton";
 
   // Prefer exact screen (e.g. "Betslip") over looser Event-view heroes
-  const screen = pickBestScreen(operator.screens, needles);
-  const ui = pickBestUi(operator.uiElements, needles);
+  const screen = motionChip
+    ? undefined
+    : pickBestScreen(operator.screens, needles);
+  const ui = pickBestUi(operator.uiElements, needles, {
+    primaryTagOnly: motionChip,
+  });
 
   const screenScore = screen
     ? scoreMatch(
@@ -173,13 +206,17 @@ export function resolveFocusHero(
     : 0;
   const uiScore = ui
     ? scoreMatch(
-        haystack([
-          ui.name,
-          ui.searchText,
-          ...(ui.tags ?? []),
-          ui.journey,
-          ui.id,
-        ]),
+        haystack(
+          motionChip
+            ? [ui.name, ui.tags?.[0], ui.id]
+            : [
+                ui.name,
+                ui.searchText,
+                ...(ui.tags ?? []),
+                ui.journey,
+                ui.id,
+              ],
+        ),
         ui.name,
         needles,
         Boolean(ui.clipWindow || ui.atMs != null),
@@ -187,7 +224,7 @@ export function resolveFocusHero(
       )
     : 0;
 
-  // Element chips (Header, …) prefer UI; screen chips prefer the screen beat
+  // Element chips (Header, Loader, Animation…) prefer UI; screen chips prefer screens
   const uiChips = new Set([
     "header",
     "odds button",
@@ -197,10 +234,16 @@ export function resolveFocusHero(
     "method row",
     "loader",
     "skeleton",
+    "animation",
+    "leaderboards",
+    "races",
+    "vip",
   ]);
   const preferUi =
     uiScore > 0 &&
-    (uiChips.has(chip) ? uiScore >= screenScore : uiScore > screenScore);
+    (uiChips.has(chip) || chip.includes("animation") || chip.includes("loader")
+      ? uiScore >= screenScore
+      : uiScore > screenScore);
 
   if (preferUi && ui) {
     return {
@@ -253,6 +296,15 @@ export function resolveFocusHero(
       videoUrl: step.videoUrl ?? flow?.videoUrl ?? operator.videoUrl,
       clipWindow: step.clipWindow ?? operator.heroClipWindow,
       label: step.label,
+    };
+  }
+
+  // Motion filters: never fall back to the brand hero pack
+  if (motionChip) {
+    return {
+      posterUrl: undefined,
+      videoUrl: undefined,
+      label: undefined,
     };
   }
 

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
-  Bell,
   Bookmark,
   Globe,
   Library,
@@ -21,6 +20,9 @@ import {
 } from "lucide-react";
 import { BlaastMark } from "@/components/brand/blaast-mark";
 import { AccountMenu } from "@/components/library/account-menu";
+import { InviteModal } from "@/components/library/invite-modal";
+import { KnowledgeBaseModal } from "@/components/library/knowledge-base-modal";
+import { NotificationsPopover } from "@/components/library/notifications-popover";
 import { useSession } from "@/lib/library/session";
 import { cn } from "@/lib/utils";
 import type { DiscoverTab } from "@/lib/library/taxonomy-nav";
@@ -94,6 +96,8 @@ export function SiteHeader({
   className?: string;
 }) {
   const { loggedIn, user } = useSession();
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const isStaff =
     user?.role === "owner" ||
     user?.role === "admin" ||
@@ -157,17 +161,26 @@ export function SiteHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5">
-        <IconBtn label="Saved">
-          <Bookmark className="size-4" strokeWidth={1.75} />
-        </IconBtn>
         {loggedIn && (
           <>
-            <IconBtn label="Explore">
+            <Link
+              href="/saved"
+              aria-label="Bookmarks"
+              title="Saved & collections"
+              className="flex size-9 items-center justify-center rounded-full text-[#8a8a8a] transition-colors duration-200 hover:bg-white/[0.04] hover:text-[#d4d4d4]"
+            >
+              <Bookmark className="size-4" strokeWidth={1.75} />
+            </Link>
+            <button
+              type="button"
+              aria-label="Help center"
+              title="Help center"
+              onClick={() => setHelpOpen(true)}
+              className="flex size-9 items-center justify-center rounded-full text-[#8a8a8a] transition-colors duration-200 hover:bg-white/[0.04] hover:text-[#d4d4d4]"
+            >
               <Globe className="size-4" strokeWidth={1.75} />
-            </IconBtn>
-            <IconBtn label="Notifications">
-              <Bell className="size-4" strokeWidth={1.75} />
-            </IconBtn>
+            </button>
+            <NotificationsPopover />
             {isStaff && (
               <Link
                 href="/admin"
@@ -176,16 +189,20 @@ export function SiteHeader({
                 {isPublisher ? "Admin" : "Capture"}
               </Link>
             )}
-            <Link
-              href="/settings/billing"
+            <button
+              type="button"
+              onClick={() => setInviteOpen(true)}
               className="ml-1 hidden h-8 items-center rounded-full border border-white/[0.12] px-3 text-[12px] font-medium text-[#cfcfcf] transition-colors hover:bg-white/[0.05] sm:inline-flex"
             >
               Invite & earn
-            </Link>
+            </button>
             <AccountMenu className="ml-1" />
           </>
         )}
       </div>
+
+      <KnowledgeBaseModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </div>
   );
 }
@@ -318,23 +335,5 @@ function HoverNav({
       </Link>
       {menu}
     </div>
-  );
-}
-
-function IconBtn({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className="flex size-9 items-center justify-center rounded-full text-[#8a8a8a] transition-colors duration-200 hover:bg-white/[0.04] hover:text-[#d4d4d4]"
-    >
-      {children}
-    </button>
   );
 }

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CatalogOperator } from "@/lib/library/catalog";
 import { resolveFocusHero } from "@/lib/library/focus-media";
 import { MediaBusy } from "@/components/library/media-busy";
+import { TileBookmark } from "@/components/library/tile-bookmark";
 import { cn } from "@/lib/utils";
 
 /** Autoplay + loop when in view; poster while buffering. Off-screen = no video load. */
@@ -105,6 +106,7 @@ export function PreviewCard({
           "p-5 sm:p-7",
         )}
       >
+        <TileBookmark slug={operator.slug} focusChip={focusChip} />
         {operator.badge && (
           <span className="absolute top-4 left-4 z-10 rounded-full bg-white/[0.08] px-2.5 py-0.5 text-[10px] font-medium text-[#d4d4d4] backdrop-blur-sm">
             {operator.badge}

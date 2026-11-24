@@ -17,6 +17,11 @@ import {
 } from "@/components/library/filter-panel";
 import { LibrarySkeleton } from "@/components/brand/blaast-preloader";
 import type { CatalogOperator } from "@/lib/library/catalog";
+import { migrateLegacySaved } from "@/lib/library/collections-store";
+import {
+  flowMatchesJourneyFilter,
+  operatorSearchHaystack,
+} from "@/lib/library/journeys";
 import { belongsToScreenChip } from "@/lib/library/tag-catalog";
 import type { PlatformFilter, SortKey } from "@/lib/library/taxonomy-nav";
 import { cn } from "@/lib/utils";
@@ -48,7 +53,11 @@ export function DiscoverPage() {
       try {
         const res = await fetch("/api/library/catalog");
         const data = (await res.json()) as { operators?: CatalogOperator[] };
-        if (!cancelled) setCatalog(data.operators ?? []);
+        const ops = data.operators ?? [];
+        if (!cancelled) {
+          setCatalog(ops);
+          migrateLegacySaved(ops.map((o) => o.slug));
+        }
       } catch {
         if (!cancelled) setCatalog([]);
       } finally {
@@ -114,20 +123,86 @@ export function DiscoverPage() {
 
   const matchesChip = (p: CatalogOperator, chip: string) => {
     const needle = chip.toLowerCase();
+    const uiHay = (u: { name: string; tags?: string[]; searchText?: string; category?: string }) =>
+      `${u.name} ${u.category ?? ""} ${u.searchText ?? ""} ${(u.tags ?? []).join(" ")}`.toLowerCase();
+
     // Screen filters (Home, Onboarding, …) — match that surface, not sports hero
     if (needle === "home") {
       return p.screens.some((s) =>
         /home|landing/i.test(`${s.title} ${(s.tags ?? []).join(" ")}`),
       );
     }
-    if (needle === "onboarding" || needle === "sign up" || needle === "signup") {
+    // Rewards & VIP — screens/UI/flows tagged rewards, not the whole brand hero
+    if (
+      needle === "rewards & vip" ||
+      needle === "rewards" ||
+      needle === "vip"
+    ) {
       return (
+        /reward|vip|loyalty/i.test(p.category) ||
         p.screens.some((s) =>
-          /login|register|sign|onboard|welcome/i.test(
-            `${s.title} ${(s.tags ?? []).join(" ")}`,
+          /vip|reward|loyalty|promo|bonus/i.test(
+            `${s.title} ${s.category ?? ""} ${(s.tags ?? []).join(" ")} ${s.journey ?? ""}`,
           ),
         ) ||
-        p.flows.some((f) => /onboard|login|register/i.test(`${f.name} ${f.group}`))
+        p.uiElements.some((u) =>
+          /vip|reward|loyalty|promo|bonus/i.test(uiHay(u)),
+        ) ||
+        p.flows.some((f) =>
+          flowMatchesJourneyFilter(f, "Loyalty & Rewards"),
+        )
+      );
+    }
+    // Animation / loader / skeleton — only elements whose *name or primary tag* matches
+    if (
+      needle === "animation" ||
+      needle === "loader" ||
+      needle === "skeleton"
+    ) {
+      return p.uiElements.some((u) => {
+        const primary = `${u.name} ${u.tags?.[0] ?? ""}`.toLowerCase();
+        if (needle === "animation") {
+          return /^(animation|motion)\b|\banimation\b|\bmotion\b/.test(primary);
+        }
+        if (needle === "loader") {
+          return /\b(loader|spinner)\b/.test(primary) && !/\bskeleton\b/.test(primary);
+        }
+        return /\b(skeleton|shimmer|loading.?skeleton)\b/.test(primary);
+      });
+    }
+    if (
+      needle === "onboarding" ||
+      needle === "sign up" ||
+      needle === "signup" ||
+      needle === "first time deposit" ||
+      needle === "withdrawal" ||
+      needle === "casino lobby" ||
+      needle === "bingo lobby" ||
+      needle === "sports betslip" ||
+      needle === "loyalty & rewards" ||
+      needle === "support" ||
+      needle === "my account"
+    ) {
+      return (
+        p.flows.some((f) => flowMatchesJourneyFilter(f, needle)) ||
+        p.screens.some((s) => {
+          const hay = `${s.title} ${(s.tags ?? []).join(" ")}`.toLowerCase();
+          if (needle.includes("onboard") || needle.includes("sign"))
+            return /login|register|sign|onboard|welcome/.test(hay);
+          if (needle.includes("deposit")) return /deposit|cashier/.test(hay);
+          if (needle.includes("withdraw")) return /withdraw/.test(hay);
+          if (needle.includes("loyalty") || needle.includes("reward"))
+            return /vip|reward|loyalty|promo/i.test(hay);
+          return hay.includes(needle);
+        }) ||
+        p.uiElements.some((u) =>
+          belongsToScreenChip(needle, {
+            name: u.name,
+            tags: u.tags,
+            searchText: u.searchText,
+            parentScreen: u.parentScreen,
+          }),
+        )
       );
     }
     // Betslip (and similar) — include parented UI: single, combo, SGP, closed
@@ -144,7 +219,7 @@ export function DiscoverPage() {
             parentScreen: u.parentScreen,
           }),
         ) ||
-        p.flows.some((f) => /betslip|place a bet/i.test(`${f.name} ${f.group}`))
+        p.flows.some((f) => flowMatchesJourneyFilter(f, "Sports Betslip"))
       );
     }
     return (
@@ -158,30 +233,14 @@ export function DiscoverPage() {
           parentScreen: u.parentScreen,
         }),
       ) ||
-      p.flows.some(
-        (f) =>
-          f.name.toLowerCase().includes(needle) ||
-          f.group.toLowerCase().includes(needle),
-      )
+      p.flows.some((f) => flowMatchesJourneyFilter(f, needle))
     );
   };
 
   const matchesMediaQuery = (p: CatalogOperator, q: string) => {
     const needle = q.trim().toLowerCase();
     if (!needle) return true;
-    const hay = [
-      p.name,
-      p.tagline,
-      p.category,
-      ...p.screens.map((s) => `${s.title} ${(s.tags ?? []).join(" ")}`),
-      ...p.uiElements.map(
-        (u) =>
-          `${u.name} ${u.category ?? ""} ${u.searchText ?? ""} ${(u.tags ?? []).join(" ")}`,
-      ),
-      ...p.flows.flatMap((f) => [f.name, f.group, ...f.actions]),
-    ]
-      .join(" ")
-      .toLowerCase();
+    const hay = operatorSearchHaystack(p);
     return needle.split(/\s+/).every((word) => hay.includes(word));
   };
 
@@ -200,8 +259,17 @@ export function DiscoverPage() {
       if (onPlat.length) list = onPlat;
     }
 
-    if (videosOnly || sort === "animations") {
+    if (videosOnly) {
       list = list.filter((p) => p.hasVideo);
+    }
+    // Animations sort = operators that actually tagged an Animation moment
+    if (sort === "animations") {
+      list = list.filter((p) =>
+        p.uiElements.some((u) =>
+          /^(animation|motion)$/i.test(u.name.trim()) ||
+          /^(animation|motion)$/i.test((u.tags?.[0] ?? "").trim()),
+        ),
+      );
     }
 
     if (mediaQuery.trim()) {
@@ -253,15 +321,18 @@ export function DiscoverPage() {
     if (filters.flows.length) {
       list = list.filter((p) =>
         filters.flows.some((f) =>
-          p.flows.some((x) => x.name.toLowerCase().includes(f.toLowerCase())),
+          p.flows.some((x) => flowMatchesJourneyFilter(x, f)),
         ),
       );
     }
 
-    if (sort === "rated") {
-      list = [...list].sort((a, b) => b.rating - a.rating);
-    } else if (sort === "popular") {
-      list = [...list].sort((a, b) => b.ratingCount - a.ratingCount);
+    const richness = (p: CatalogOperator) =>
+      p.screens.length * 3 +
+      p.uiElements.length +
+      p.flows.length +
+      (p.hasVideo ? 5 : 0);
+    if (sort === "rated" || sort === "popular") {
+      list = [...list].sort((a, b) => richness(b) - richness(a));
     } else if (sort === "latest") {
       list = [...list].reverse();
     }
@@ -336,6 +407,7 @@ export function DiscoverPage() {
 
       {!filteredMode && (
         <MegaBrowse
+          operators={catalog}
           active={filterChip}
           onPick={(label) => {
             setFilterChip(label);
@@ -409,11 +481,17 @@ export function DiscoverPage() {
         open={filterOpen}
         onOpenChange={setFilterOpen}
         value={filters}
+        operators={catalog}
         onApply={(next) => {
           setFilters(next);
           const primary =
             next.screens[0] ?? next.uiElements[0] ?? next.flows[0] ?? null;
           if (primary) setFilterChip(primary);
+        }}
+        onPickBrand={(name) => {
+          setMediaQuery(name);
+          setFilterChip(null);
+          setFilterOpen(false);
         }}
         resultCount={items.length}
       />

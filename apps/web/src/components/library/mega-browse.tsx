@@ -3,24 +3,20 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import type { CatalogOperator } from "@/lib/library/catalog";
 import { MEGA } from "@/lib/library/taxonomy-nav";
 import {
+  liveMegaLabels,
   previewsForLabel,
   type MegaPreview,
 } from "@/lib/library/mega-previews";
 import { logoCandidates } from "@/lib/marketing/operator-logos";
 import { cn } from "@/lib/utils";
-
-const columns = [
-  { label: "Categories", items: MEGA.categories },
-  { label: "Screens", items: MEGA.screens },
-  { label: "UI Elements", items: MEGA.uiElements },
-  { label: "Flows", items: MEGA.flows },
-] as const;
 
 type HoverState = {
   label: string;
@@ -29,20 +25,39 @@ type HoverState = {
   previews: MegaPreview[];
 };
 
+/** Mobbin-style caps — Categories include Promotions + Trust. */
+const MEGA_CAP = 5;
+const CATEGORY_CAP = 7;
+const UI_CAP = 7;
+const FLOW_CAP = 9;
+
 /**
- * Taxonomy mega — Mobbin-scale type (~17–18px) + floating brand preview on hover.
- * Mobbin uses custom M Saans; we use library DM Sans (--font-lib).
+ * Taxonomy mega — curated MEGA order, published matches only.
+ * Flows = Scuup Journeys (Onboarding, First time deposit, Withdrawal, …).
  */
 export function MegaBrowse({
+  operators = [],
   active,
   onPick,
 }: {
+  operators?: CatalogOperator[];
   active?: string | null;
   onPick?: (label: string) => void;
 }) {
   const [hover, setHover] = useState<HoverState | null>(null);
   const [previewIdx, setPreviewIdx] = useState(0);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const columns = useMemo(() => {
+    const pick = (items: readonly string[], cap: number) =>
+      liveMegaLabels(items, operators).slice(0, cap);
+    return [
+      { label: "Categories", items: pick(MEGA.categories, CATEGORY_CAP) },
+      { label: "Screens", items: pick(MEGA.screens, MEGA_CAP) },
+      { label: "UI Elements", items: pick(MEGA.uiElements, UI_CAP) },
+      { label: "Flows", items: pick(MEGA.flows, FLOW_CAP) },
+    ].filter((col) => col.items.length > 0);
+  }, [operators]);
 
   useEffect(() => {
     if (!hover || hover.previews.length < 2) return;
@@ -52,21 +67,32 @@ export function MegaBrowse({
     return () => window.clearInterval(id);
   }, [hover]);
 
-  const showHover = useCallback((label: string, el: HTMLElement) => {
-    if (leaveTimer.current) clearTimeout(leaveTimer.current);
-    const r = el.getBoundingClientRect();
-    setPreviewIdx(0);
-    setHover({
-      label,
-      x: r.left + r.width * 0.55,
-      y: r.top + r.height / 2,
-      previews: previewsForLabel(label),
-    });
-  }, []);
+  const showHover = useCallback(
+    (label: string, el: HTMLElement) => {
+      if (leaveTimer.current) clearTimeout(leaveTimer.current);
+      const r = el.getBoundingClientRect();
+      setPreviewIdx(0);
+      setHover({
+        label,
+        x: r.left + r.width * 0.55,
+        y: r.top + r.height / 2,
+        previews: previewsForLabel(label, operators),
+      });
+    },
+    [operators],
+  );
 
   const hideHover = useCallback(() => {
     leaveTimer.current = setTimeout(() => setHover(null), 80);
   }, []);
+
+  if (!columns.length) {
+    return (
+      <div className="lib-hairline relative z-20 w-full border-b bg-[var(--lib-bg,#111)] px-5 py-10 text-center text-[14px] text-[#8a8a8a]">
+        Publish brand captures to fill the library.
+      </div>
+    );
+  }
 
   return (
     <div className="lib-hairline relative z-20 w-full overflow-x-hidden border-b bg-[var(--lib-bg,#111)]">
@@ -75,7 +101,7 @@ export function MegaBrowse({
           <GlideColumn
             key={col.label}
             label={col.label}
-            items={[...col.items]}
+            items={col.items}
             active={active}
             onPick={onPick}
             onItemEnter={showHover}
@@ -83,7 +109,9 @@ export function MegaBrowse({
           />
         ))}
       </div>
-      {hover && <MegaHoverPreview hover={hover} index={previewIdx} />}
+      {hover && hover.previews.length > 0 && (
+        <MegaHoverPreview hover={hover} index={previewIdx} />
+      )}
     </div>
   );
 }
@@ -180,12 +208,23 @@ function GlideColumn({
   );
 }
 
-function MegaFavicon({ domain, size }: { domain: string; size: number }) {
-  const candidates = logoCandidates(domain, 128);
+function MegaBrandLogo({
+  logoUrl,
+  domain,
+  size,
+}: {
+  logoUrl?: string;
+  domain: string;
+  size: number;
+}) {
+  const candidates = [
+    ...(logoUrl ? [logoUrl] : []),
+    ...logoCandidates(domain, 128),
+  ];
   const [idx, setIdx] = useState(0);
   const src = candidates[idx];
   if (!src) {
-    return <div className="size-full bg-neutral-100" />;
+    return <div className="size-full bg-white" />;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -235,7 +274,11 @@ function MegaHoverPreview({
         )}
         style={{ width: size, height: size }}
       >
-        <MegaFavicon domain={preview.domain} size={size} />
+        <MegaBrandLogo
+          logoUrl={preview.logoUrl}
+          domain={preview.domain}
+          size={size}
+        />
       </div>
       <p className="mt-2 text-center text-[11px] font-medium text-white/80 drop-shadow">
         {preview.name}

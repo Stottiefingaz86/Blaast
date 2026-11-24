@@ -96,7 +96,7 @@ export const CURATED_UI_TAGS: Record<string, CuratedTagMeta> = {
     title: "Loader",
     order: 8,
     category: "Cross",
-    synonyms: ["spinner", "loading", "motion"],
+    synonyms: ["spinner", "loading", "motion", "animation"],
   },
   skeleton: {
     title: "Skeleton",
@@ -108,7 +108,38 @@ export const CURATED_UI_TAGS: Record<string, CuratedTagMeta> = {
     title: "Skeleton",
     order: 8,
     category: "Cross",
-    synonyms: ["shimmer", "loading", "placeholder"],
+    synonyms: ["shimmer", "loading", "placeholder", "loader"],
+  },
+  animation: {
+    title: "Animation",
+    order: 8,
+    category: "Cross",
+    // Keep synonyms narrow — do not pull every loader clip into Animation filter
+    synonyms: ["motion", "transition"],
+  },
+  motion: {
+    title: "Animation",
+    order: 8,
+    category: "Cross",
+    synonyms: ["animation", "transition"],
+  },
+  error: {
+    title: "Error alert",
+    order: 9,
+    category: "Account",
+    synonyms: ["error", "alert", "toast", "validation", "inline error"],
+  },
+  alert: {
+    title: "Error alert",
+    order: 9,
+    category: "Account",
+    synonyms: ["error", "toast", "banner"],
+  },
+  toast: {
+    title: "Error alert",
+    order: 9,
+    category: "Account",
+    synonyms: ["error", "alert"],
   },
 
   // Casino discovery rows

@@ -1,14 +1,17 @@
-/** Mega-browse columns — same structure as Mobbin, iGaming labels. */
+/** Mega-browse columns — Mobbin structure; Flows = Scuup Journeys. */
+
+import { LIBRARY_FLOWS } from "@/lib/library/journeys";
 
 export const MEGA = {
   categories: [
     "Sportsbook",
     "Casino",
-    "Poker",
     "Cashier",
+    "Promotions",
+    "Trust",
     "Rewards & VIP",
     "Account",
-    "Promotions",
+    "Poker",
   ],
   screens: [
     "Home",
@@ -25,19 +28,16 @@ export const MEGA = {
     "Header",
     "Tab bar",
     "Activity feed",
+    "Leaderboards",
+    "Races",
     "Method row",
     "Loader",
     "Skeleton",
+    "Animation",
+    "VIP",
   ],
-  flows: [
-    "Sign up",
-    "First deposit",
-    "Place a bet",
-    "Onboarding",
-    "Withdrawal",
-    "Bonus claim",
-    "Cash out",
-  ],
+  /** Scuup Journey Audit list — not ad-hoc flow names */
+  flows: LIBRARY_FLOWS,
 } as const;
 
 /** Top product areas — Library (live) · Research / Studio (later) */

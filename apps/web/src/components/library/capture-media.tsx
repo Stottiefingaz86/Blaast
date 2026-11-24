@@ -49,7 +49,10 @@ export function CaptureMedia({
     inView && (loop || (playOnHover && hovering) || (!playOnHover && hovering)),
   );
   // Only attach <video> when near viewport — keeps 500-brand grids workable
-  const loadVideo = Boolean(videoUrl && inView && (shouldPlay || !posterUrl));
+  // Always attach video when poster missing/failed so tiles aren't empty/broken
+  const loadVideo = Boolean(
+    videoUrl && inView && (shouldPlay || !posterUrl || posterFailed),
+  );
   const showPoster = Boolean(posterUrl && !posterFailed);
 
   useEffect(() => {

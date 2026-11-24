@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowUpRight,
+  Bookmark,
   Clapperboard,
   Code2,
   LayoutDashboard,
@@ -191,6 +192,13 @@ export function AccountMenu({
         )}
 
         <div className="border-b border-white/[0.06] py-1.5">
+          <MenuLink
+            href="/saved"
+            icon={<Bookmark className="size-4" strokeWidth={1.75} />}
+            onClick={() => setOpen(false)}
+          >
+            Favourites
+          </MenuLink>
           <MenuLink
             href="/settings/mcp"
             icon={<Code2 className="size-4" strokeWidth={1.75} />}
