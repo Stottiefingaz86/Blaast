@@ -27,6 +27,7 @@ import type {
   RecordingArtifact,
 } from "@/lib/admin/types";
 import { viewportForPlatform } from "@/lib/admin/viewport-presets";
+import { artifactPublicUrl } from "@/lib/storage/public-url";
 import { cn } from "@/lib/utils";
 
 const QUICK_TAGS = CLIP_QUICK_TAGS;
@@ -1151,7 +1152,7 @@ export function CaptureStage({
                         <img
                           alt=""
                           className="h-full w-full object-cover"
-                          src={`/api/admin/sessions/${session.id}/artifacts/${art.id}?file=poster`}
+                          src={artifactPublicUrl(art.posterPath) ?? `/api/admin/sessions/${session.id}/artifacts/${art.id}?file=poster`}
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center">

@@ -5,6 +5,7 @@ import { ClipVideoTagger } from "@/components/admin/clip-video-tagger";
 import { ElementClipPanel } from "@/components/admin/element-clip-panel";
 import { LibraryTrimPanel } from "@/components/admin/library-trim-panel";
 import type { CaptureSession, RecordingArtifact } from "@/lib/admin/types";
+import { artifactPublicUrl } from "@/lib/storage/public-url";
 
 type Props = {
   open: boolean;
@@ -34,6 +35,14 @@ export function ClipReviewModal({
 
   const dark = tone === "dark";
   const approved = clip.reviewStatus === "approved";
+  const videoSrc =
+    artifactPublicUrl(clip.videoPath) ??
+    `/api/admin/sessions/${sessionId}/artifacts/${clip.id}?file=video`;
+  const posterSrc =
+    artifactPublicUrl(clip.posterPath) ??
+    (clip.posterPath
+      ? `/api/admin/sessions/${sessionId}/artifacts/${clip.id}?file=poster`
+      : undefined);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
@@ -120,12 +129,8 @@ export function ClipReviewModal({
             key={clip.id}
             sessionId={sessionId}
             coverageStepId={clip.coverageStepId}
-            videoSrc={`/api/admin/sessions/${sessionId}/artifacts/${clip.id}?file=video`}
-            posterSrc={
-              clip.posterPath
-                ? `/api/admin/sessions/${sessionId}/artifacts/${clip.id}?file=poster`
-                : undefined
-            }
+            videoSrc={videoSrc}
+            posterSrc={posterSrc}
             durationMsHint={clip.durationMs}
             annotations={clip.annotations ?? []}
             onSession={onSession}
@@ -135,7 +140,7 @@ export function ClipReviewModal({
           <LibraryTrimPanel
             sessionId={sessionId}
             clip={clip}
-            videoSrc={`/api/admin/sessions/${sessionId}/artifacts/${clip.id}?file=video`}
+            videoSrc={videoSrc}
             onSession={onSession}
             tone={tone}
           />

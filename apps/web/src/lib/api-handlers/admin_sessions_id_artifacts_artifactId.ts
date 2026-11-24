@@ -24,6 +24,20 @@ export async function GET(
     | "video"
     | "poster"
     | "structure";
+
+  // Fast path: redirect to Supabase public URL (no serverless download).
+  if (which === "video" || which === "poster") {
+    const { getSession } = await import("@/lib/admin/store");
+    const { artifactPublicUrl } = await import("@/lib/storage/captures");
+    const session = await getSession(id);
+    const art = session?.artifacts?.find((a) => a.id === artifactId);
+    const rel = which === "video" ? art?.videoPath : art?.posterPath;
+    const publicUrl = artifactPublicUrl(rel);
+    if (publicUrl) {
+      return NextResponse.redirect(publicUrl, 302);
+    }
+  }
+
   const resolved = await resolveArtifactFile(id, artifactId, which);
   if (!resolved) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
