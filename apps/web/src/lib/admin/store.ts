@@ -38,12 +38,12 @@ async function ensureStore(): Promise<AdminStore> {
 async function writeStore(store: AdminStore, opts?: { syncSessions?: boolean }) {
   await fs.mkdir(dataDir(), { recursive: true });
   await fs.writeFile(storePath(), JSON.stringify(store, null, 2));
-  // Vercel /tmp is not shared — keep sessions in Storage so /stage never 404s.
+  // Vercel /tmp is not shared — upsert each session with artifact-safe merge.
   if (opts?.syncSessions !== false && store.sessions.length) {
     try {
       const { upsertSessionCloud } = await import("@/lib/admin/sessions-cloud");
       const merged = await Promise.all(
-        store.sessions.map((sess) => upsertSessionCloud(sess)),
+        store.sessions.map((s) => upsertSessionCloud(s)),
       );
       store.sessions = merged;
       await fs.writeFile(storePath(), JSON.stringify(store, null, 2));
@@ -92,9 +92,10 @@ export async function getOperator(id: string) {
   try {
     const { getOperatorCloud } = await import("@/lib/admin/operators-cloud");
     const cloud = await getOperatorCloud(id);
+    // Cache into /tmp so the same instance can start capture without re-fetch
     if (cloud) {
       store.operators.push(cloud);
-      await writeStore(store);
+      await writeStore(store, { syncSessions: false });
     }
     return cloud;
   } catch (err) {
@@ -227,11 +228,11 @@ export async function listSessions(operatorId?: string) {
     const cloud = await listSessionsCloud();
     if (cloud.length) {
       const byId = new Map<string, CaptureSession>();
-      for (const sess of cloud) byId.set(sess.id, sess);
-      for (const sess of store.sessions) {
-        const prev = byId.get(sess.id);
-        if (!prev || (sess.updatedAt || "") >= (prev.updatedAt || "")) {
-          byId.set(sess.id, sess);
+      for (const s of cloud) byId.set(s.id, s);
+      for (const s of store.sessions) {
+        const prev = byId.get(s.id);
+        if (!prev || (s.updatedAt || "") >= (prev.updatedAt || "")) {
+          byId.set(s.id, s);
         }
       }
       store.sessions = [...byId.values()];
@@ -241,7 +242,7 @@ export async function listSessions(operatorId?: string) {
     console.error("[listSessions] cloud", err);
   }
   const sessions = operatorId
-    ? store.sessions.filter((sess) => sess.operatorId === operatorId)
+    ? store.sessions.filter((s) => s.operatorId === operatorId)
     : store.sessions;
   return [...sessions].sort((a, b) =>
     b.updatedAt.localeCompare(a.updatedAt),
@@ -250,7 +251,7 @@ export async function listSessions(operatorId?: string) {
 
 export async function getSession(id: string) {
   const store = await ensureStore();
-  const local = store.sessions.find((sess) => sess.id === id);
+  const local = store.sessions.find((s) => s.id === id);
   if (local) return local;
   try {
     const { getSessionCloud } = await import("@/lib/admin/sessions-cloud");
@@ -337,12 +338,8 @@ export async function updateSessionItem(
   patch: Partial<CaptureSession["items"][number]>,
 ) {
   const store = await ensureStore();
-  let session = store.sessions.find((s) => s.id === sessionId);
-  if (!session) {
-    const hydrated = await getSession(sessionId);
-    if (!hydrated) return null;
-    session = store.sessions.find((s) => s.id === sessionId) ?? hydrated;
-  }
+  const session = store.sessions.find((s) => s.id === sessionId);
+  if (!session) return null;
   const item = session.items.find((i) => i.playbookItemId === playbookItemId);
   if (!item) return null;
   Object.assign(item, patch);
@@ -400,12 +397,8 @@ export async function updateSessionGuide(
   },
 ) {
   const store = await ensureStore();
-  let session = store.sessions.find((s) => s.id === sessionId);
-  if (!session) {
-    const hydrated = await getSession(sessionId);
-    if (!hydrated) return null;
-    session = store.sessions.find((s) => s.id === sessionId) ?? hydrated;
-  }
+  const session = store.sessions.find((s) => s.id === sessionId);
+  if (!session) return null;
   const prev = session.guide ?? defaultGuide(null);
   session.guide = {
     currentStepId:
@@ -508,10 +501,28 @@ export async function saveRecordingArtifact(input: {
   }
   if (input.structureJson !== undefined) {
     structurePath = `${session.id}/${id}.structure.json`;
-    await fs.writeFile(
-      path.join(CAPTURES_DIR(), structurePath),
-      JSON.stringify(input.structureJson, null, 2),
+    const { writeAndUploadStructure } = await import(
+      "@/lib/evidence/structure-persist"
     );
+    const written = await writeAndUploadStructure({
+      structureRel: structurePath,
+      snapshot: input.structureJson,
+    });
+    if (!written.ok) {
+      console.error(
+        "[saveRecordingArtifact] structure persist failed",
+        written.error,
+      );
+      // Keep path only if local write might have partially succeeded; clear if invalid
+      if (written.error?.includes("must be") || written.error?.includes("too large")) {
+        structurePath = undefined;
+      }
+    } else if (written.error) {
+      console.error(
+        "[saveRecordingArtifact] structure cloud warning",
+        written.error,
+      );
+    }
   }
 
   const pendingLive = session.liveAnnotations?.[input.coverageStepId] ?? [];
@@ -537,7 +548,15 @@ export async function saveRecordingArtifact(input: {
   };
 
   if (!session.artifacts) session.artifacts = [];
-  // Replace prior artifact for same step (redo)
+  // Replace prior artifact for same step (redo) — tombstone old ids so cloud merge can't resurrect
+  const replaced = (session.artifacts ?? []).filter(
+    (a) => a.coverageStepId === input.coverageStepId,
+  );
+  if (replaced.length) {
+    const removed = new Set(session.removedArtifactIds ?? []);
+    for (const old of replaced) removed.add(old.id);
+    session.removedArtifactIds = [...removed];
+  }
   session.artifacts = session.artifacts.filter(
     (a) => a.coverageStepId !== input.coverageStepId,
   );
@@ -634,6 +653,9 @@ export async function deleteRecordingArtifact(
   }
 
   session.artifacts = (session.artifacts ?? []).filter((a) => a.id !== artifactId);
+  const removed = new Set(session.removedArtifactIds ?? []);
+  removed.add(artifactId);
+  session.removedArtifactIds = [...removed];
 
   const item = session.items.find(
     (i) => i.playbookItemId === art.coverageStepId,
@@ -722,6 +744,18 @@ export async function addLiveAnnotation(
 
   session.updatedAt = new Date().toISOString();
   await writeStore(store);
+
+  // Tags on an already-approved clip must refresh the library UI Elements index
+  if (art?.reviewStatus === "approved") {
+    try {
+      const { publishApprovedArtifact } = await import(
+        "@/lib/evidence/publish"
+      );
+      await publishApprovedArtifact(session, art);
+    } catch (err) {
+      console.error("[addLiveAnnotation] republish", err);
+    }
+  }
   return session;
 }
 
@@ -925,6 +959,20 @@ export async function resolveArtifactFile(
     await fs.access(full);
     return { full, artifact: art };
   } catch {
+    /* Local /tmp miss on Vercel — pull from Supabase Storage */
+  }
+  try {
+    const { storagePublicUrl } = await import("@/lib/storage/captures");
+    const url = storagePublicUrl(rel);
+    if (!url) return null;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, buf);
+    return { full, artifact: art };
+  } catch (err) {
+    console.error("[resolveArtifactFile] cloud", err);
     return null;
   }
 }

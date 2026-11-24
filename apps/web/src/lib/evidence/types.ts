@@ -56,6 +56,20 @@ export type MotionHintSummary = {
   targetHint?: string;
 };
 
+/** Completeness of structure attached to a step — never invent missing fields. */
+export type StructureCompleteness = {
+  kind: "measured" | "synthetic" | "unknown" | "missing" | "unreadable";
+  source: "local" | "remote" | "none";
+  highFidelityCapable: boolean;
+  hasStyles: boolean;
+  hasMotion: boolean;
+  hasViewport: boolean;
+  nodeCount: number;
+  error?: string;
+  /** Authorised Storage URL when available (not an arbitrary fetch). */
+  structureUrl?: string;
+};
+
 export type StepEvidence = {
   stepId: string;
   index: number;
@@ -68,6 +82,7 @@ export type StepEvidence = {
   layoutNotes: string[];
   structureRegions?: StructureRegion[];
   motionHints?: MotionHintSummary[];
+  structureCompleteness?: StructureCompleteness;
   coverageStepId?: string;
   artifacts: ArtifactRef[];
 };

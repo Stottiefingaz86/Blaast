@@ -347,8 +347,20 @@ export async function callMcpTool(
       preferTemplate: true,
     }).catch(() => null);
 
+    const structureSummary = evidence.steps.map((s) => ({
+      stepId: s.stepId,
+      coverageStepId: s.coverageStepId,
+      completeness: s.structureCompleteness ?? null,
+      regionCount: s.structureRegions?.length ?? 0,
+      motionCount: s.motionHints?.length ?? 0,
+      hasStyles: Boolean(
+        s.structureRegions?.some((r) => r.styles && Object.keys(r.styles).length),
+      ),
+    }));
+
     return {
       evidence,
+      structure_summary: structureSummary,
       agent_prompt: generated?.prompt ?? null,
       prompt_source: generated?.source ?? null,
       citations: generated?.citations ?? [],

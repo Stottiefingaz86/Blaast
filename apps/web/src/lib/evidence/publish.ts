@@ -270,91 +270,145 @@ export async function publishApprovedArtifact(
     console.error("[publishApprovedArtifact] annotation stills", err);
   }
 
-  // Video motion / transition analysis + chrome regions for MCP rebuilds
+  // Motion analysis + structure: NEVER overwrite measured DOM/CSS snapshots.
   try {
     const { capturesRoot } = await import("@/lib/admin/store");
-    if (art.videoPath) {
-      const {
-        analyzeVideoMotion,
-        buildMotionStructureSnapshot,
-        defaultDesktopChromeRegions,
-        cropPosterRegion,
-      } = await import("@/lib/admin/analyze-video-motion");
-      const root = capturesRoot();
-      const videoAbs = path.join(root, art.videoPath);
-      const { motionHints } = await analyzeVideoMotion({
-        videoAbsPath: videoAbs,
-        durationMs: art.durationMs,
-      });
-      const structureRel = `${session.id}/${art.id}.structure.json`;
-      const snap = buildMotionStructureSnapshot({
-        pageUrl: art.pageUrl,
-        viewport: art.viewport
-          ? {
-              width: art.viewport.width,
-              height: art.viewport.height,
-            }
-          : undefined,
-        motionHints,
-        chromeRegions:
-          /lobby|home|side.?nav|header|casino|sports/i.test(
-            art.coverageStepId,
-          )
-            ? defaultDesktopChromeRegions()
-            : undefined,
-      });
-      await fs.mkdir(path.dirname(path.join(root, structureRel)), {
-        recursive: true,
-      });
-      await fs.writeFile(
-        path.join(root, structureRel),
-        JSON.stringify(snap, null, 2),
-        "utf8",
-      );
-      art.structurePath = structureRel;
+    const {
+      loadStructureSnapshot,
+      isMeasuredStructure,
+      mergeMotionHintsIntoStructure,
+      markSyntheticFallback,
+      writeAndUploadStructure,
+    } = await import("@/lib/evidence/structure-persist");
+    const {
+      analyzeVideoMotion,
+      buildMotionStructureSnapshot,
+      defaultDesktopChromeRegions,
+      cropPosterRegion,
+    } = await import("@/lib/admin/analyze-video-motion");
 
-      // Derive header + side_nav stills from lobby/home posters when those beats exist
-      if (
-        art.posterPath &&
-        /scr-casino-lobby|scr-home|ui-side-nav|ui-header/i.test(
-          art.coverageStepId,
-        )
-      ) {
-        const posterAbs = path.join(root, art.posterPath);
-        const anns = [...(art.annotations ?? [])];
-        for (const region of defaultDesktopChromeRegions().filter(
-          (r) => r.role === "header" || r.role === "side_nav",
-        )) {
-          const tag = region.role;
-          if (anns.some((a) => a.tag === tag)) continue;
-          const cropRel = `${session.id}/${art.id}-${tag}.png`;
-          const ok = await cropPosterRegion({
-            posterAbsPath: posterAbs,
-            outAbsPath: path.join(root, cropRel),
-            box: region.box,
-          });
-          if (!ok) continue;
-          anns.push({
-            id: `${art.id}-${tag}`,
-            label: tag === "header" ? "Header" : "Side navigation",
-            tag,
-            atMs: 800,
-            region: {
-              x: region.box.x,
-              y: region.box.y,
-              w: region.box.width,
-              h: region.box.height,
-            },
-            posterPath: cropRel,
-            publishElement: true,
-            createdAt: new Date().toISOString(),
-          });
-        }
-        art.annotations = anns;
+    const structureRel =
+      art.structurePath || `${session.id}/${art.id}.structure.json`;
+    const existing = await loadStructureSnapshot(art.structurePath);
+    let motionHints: Awaited<
+      ReturnType<typeof analyzeVideoMotion>
+    >["motionHints"] = [];
+
+    if (art.videoPath) {
+      try {
+        const { motionHints: hints } = await analyzeVideoMotion({
+          videoAbsPath: path.join(capturesRoot(), art.videoPath),
+          durationMs: art.durationMs,
+        });
+        motionHints = hints;
+      } catch (err) {
+        console.error("[publishApprovedArtifact] analyzeVideoMotion", err);
       }
     }
+
+    if (existing.ok && existing.raw && isMeasuredStructure(existing.raw)) {
+      // Preserve measured nodes/styles; optionally append inferred video motion.
+      const merged =
+        motionHints.length > 0
+          ? mergeMotionHintsIntoStructure(existing.raw, motionHints)
+          : existing.raw;
+      const written = await writeAndUploadStructure({
+        structureRel,
+        snapshot: merged,
+      });
+      if (!written.ok) {
+        console.error(
+          "[publishApprovedArtifact] failed to re-persist measured structure",
+          written.error,
+        );
+      } else {
+        art.structurePath = written.structurePath;
+      }
+    } else if (!existing.ok || !existing.raw) {
+      // Explicit synthetic fallback only when no measured structure exists.
+      if (art.videoPath || motionHints.length) {
+        const snap = markSyntheticFallback(
+          buildMotionStructureSnapshot({
+            pageUrl: art.pageUrl,
+            viewport: art.viewport
+              ? {
+                  width: art.viewport.width,
+                  height: art.viewport.height,
+                }
+              : undefined,
+            motionHints,
+            chromeRegions:
+              /lobby|home|side.?nav|header|casino|sports/i.test(
+                art.coverageStepId,
+              )
+                ? defaultDesktopChromeRegions()
+                : undefined,
+          }) as Record<string, unknown>,
+        );
+        const written = await writeAndUploadStructure({
+          structureRel,
+          snapshot: snap,
+        });
+        if (written.ok) art.structurePath = written.structurePath;
+        else {
+          console.error(
+            "[publishApprovedArtifact] synthetic structure write failed",
+            written.error,
+          );
+        }
+      }
+    } else {
+      // Existing synthetic/unknown — re-upload as-is; do not degrade further.
+      art.structurePath = structureRel;
+      await writeAndUploadStructure({
+        structureRel,
+        snapshot: existing.raw,
+      });
+    }
+
+    // Derive header + side_nav stills from posters when those beats exist
+    // (annotation crops are additive; do not touch structure nodes).
+    if (
+      art.posterPath &&
+      /scr-casino-lobby|scr-home|ui-side-nav|ui-header/i.test(
+        art.coverageStepId,
+      )
+    ) {
+      const root = capturesRoot();
+      const posterAbs = path.join(root, art.posterPath);
+      const anns = [...(art.annotations ?? [])];
+      for (const region of defaultDesktopChromeRegions().filter(
+        (r) => r.role === "header" || r.role === "side_nav",
+      )) {
+        const tag = region.role;
+        if (anns.some((a) => a.tag === tag)) continue;
+        const cropRel = `${session.id}/${art.id}-${tag}.png`;
+        const ok = await cropPosterRegion({
+          posterAbsPath: posterAbs,
+          outAbsPath: path.join(root, cropRel),
+          box: region.box,
+        });
+        if (!ok) continue;
+        anns.push({
+          id: `${art.id}-${tag}`,
+          label: tag === "header" ? "Header" : "Side navigation",
+          tag,
+          atMs: 800,
+          region: {
+            x: region.box.x,
+            y: region.box.y,
+            w: region.box.width,
+            h: region.box.height,
+          },
+          posterPath: cropRel,
+          publishElement: true,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      art.annotations = anns;
+    }
   } catch (err) {
-    console.error("[publishApprovedArtifact] video motion", err);
+    console.error("[publishApprovedArtifact] video motion / structure", err);
   }
 
   const record = buildRecord(session, art, operator);
@@ -366,6 +420,7 @@ export async function publishApprovedArtifact(
       artifactId: art.id,
       videoPath: art.videoPath,
       posterPath: art.posterPath,
+      structurePath: art.structurePath,
     });
     if (urls.videoUrl) record.videoUrl = urls.videoUrl;
     if (urls.posterUrl) record.posterUrl = urls.posterUrl;

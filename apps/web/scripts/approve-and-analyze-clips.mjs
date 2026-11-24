@@ -202,30 +202,75 @@ async function processArtifact(session, art, dir, rows) {
     art.coverageStepId,
   );
   const regions = wantChrome ? chromeRegions() : [];
-  const structure = {
-    provenance: "measured_video_analysis",
-    page: art.pageUrl ? { url: art.pageUrl } : undefined,
-    nodes: regions.map((r, i) => ({
-      nodeId: `chrome-${r.role}-${i}`,
-      tag: "nav",
-      role: r.role,
-      selectorHint: `[data-blaast-role="${r.role}"]`,
-      textPreview: r.note,
-      box: { x: r.box.x, y: r.box.y, width: r.box.width, height: r.box.height },
-    })),
-    motion: {
-      animations: motionHints.map((h) => ({
-        targetHint: h.targetHint,
-        name: { value: h.name },
-        durationMs: { value: h.durationMs },
-        easing: { value: h.easing },
-        source: h.source,
-        atMs: h.atMs,
-      })),
-    },
-  };
   const structureRel = `${session.id}/${art.id}.structure.json`;
-  await uploadJson(structureRel, structure);
+
+  // Never overwrite measured extension DOM/CSS with synthetic chrome.
+  let existingMeasured = false;
+  try {
+    const existingRes = await fetch(publicObject(structureRel));
+    if (existingRes.ok) {
+      const existing = await existingRes.json();
+      const measured =
+        existing &&
+        typeof existing === "object" &&
+        existing.provenance !== "measured_video_analysis" &&
+        existing.synthetic !== true &&
+        (Boolean(existing.extractorVersion) ||
+          existing.stylesAvailability === "dom" ||
+          existing.stylesAvailability === "mixed" ||
+          (Array.isArray(existing.nodes) &&
+            existing.nodes.some((n) => n && n.styles && typeof n.styles === "object")));
+      if (measured) {
+        existingMeasured = true;
+        const motion = existing.motion && typeof existing.motion === "object" ? existing.motion : {};
+        const animations = Array.isArray(motion.animations) ? [...motion.animations] : [];
+        for (const h of motionHints) {
+          animations.push({
+            targetHint: h.targetHint,
+            name: { value: h.name, provenance: "inferred" },
+            durationMs: { value: h.durationMs, provenance: "inferred" },
+            easing: h.easing ? { value: h.easing, provenance: "inferred" } : {},
+            source: h.source,
+            atMs: h.atMs,
+          });
+        }
+        existing.motion = { ...motion, animations: animations.slice(0, 60) };
+        await uploadJson(structureRel, existing);
+        console.log("preserved measured structure", art.id);
+      }
+    }
+  } catch {
+    /* no existing */
+  }
+
+  if (!existingMeasured) {
+    const structure = {
+      provenance: "measured_video_analysis",
+      synthetic: true,
+      highFidelityCapable: false,
+      dataQuality: "synthetic_fallback",
+      page: art.pageUrl ? { url: art.pageUrl } : undefined,
+      nodes: regions.map((r, i) => ({
+        nodeId: `chrome-${r.role}-${i}`,
+        tag: "nav",
+        role: r.role,
+        selectorHint: `[data-blaast-role="${r.role}"]`,
+        textPreview: r.note,
+        box: { x: r.box.x, y: r.box.y, width: r.box.width, height: r.box.height },
+      })),
+      motion: {
+        animations: motionHints.map((h) => ({
+          targetHint: h.targetHint,
+          name: { value: h.name },
+          durationMs: { value: h.durationMs },
+          easing: { value: h.easing },
+          source: h.source,
+          atMs: h.atMs,
+        })),
+      },
+    };
+    await uploadJson(structureRel, structure);
+  }
 
   const anns = [...(art.annotations || [])];
   if (wantChrome) {

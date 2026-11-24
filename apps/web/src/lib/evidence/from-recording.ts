@@ -1,10 +1,16 @@
-import { promises as fs } from "fs";
-import path from "path";
 import { coverageStepById } from "@/lib/admin/coverage-pack";
-import { capturesRoot } from "@/lib/admin/store";
 import type { CaptureSession, Operator, RecordingArtifact } from "@/lib/admin/types";
 import { summarizeStructure } from "@/lib/evidence/structure-summary";
-import type { FlowEvidence, StepEvidence, UiRole } from "@/lib/evidence/types";
+import {
+  loadStructureSnapshot,
+} from "@/lib/evidence/structure-persist";
+import { storagePublicUrl } from "@/lib/storage/captures";
+import type {
+  FlowEvidence,
+  StepEvidence,
+  StructureCompleteness,
+  UiRole,
+} from "@/lib/evidence/types";
 
 /**
  * Build FlowEvidence from an approved admin recording session.
@@ -106,13 +112,67 @@ async function artifactToStep(
     );
   }
 
+  let completeness: StructureCompleteness = {
+    kind: art.structurePath ? "unreadable" : "missing",
+    source: "none",
+    highFidelityCapable: false,
+    hasStyles: false,
+    hasMotion: false,
+    hasViewport: Boolean(art.viewport),
+    nodeCount: 0,
+    structureUrl: art.structurePath
+      ? storagePublicUrl(art.structurePath.replace(/^\//, "")) || undefined
+      : undefined,
+  };
+
   if (art.structurePath) {
-    try {
-      const full = path.join(capturesRoot(), art.structurePath);
-      const raw = JSON.parse(await fs.readFile(full, "utf8"));
-      const summary = summarizeStructure(raw);
+    const loaded = await loadStructureSnapshot(art.structurePath);
+    completeness = {
+      kind: loaded.ok
+        ? loaded.kind
+        : loaded.error?.includes("malform") || loaded.error?.includes("must be")
+          ? "unreadable"
+          : loaded.kind === "missing"
+            ? "missing"
+            : "unreadable",
+      source: loaded.source,
+      highFidelityCapable: loaded.highFidelityCapable,
+      hasStyles: false,
+      hasMotion: false,
+      hasViewport: Boolean(
+        art.viewport ||
+          (loaded.raw &&
+            typeof loaded.raw === "object" &&
+            (loaded.raw as { viewport?: unknown }).viewport),
+      ),
+      nodeCount: 0,
+      error: loaded.error,
+      structureUrl: completeness.structureUrl,
+    };
+
+    if (loaded.ok && loaded.raw) {
+      const summary = summarizeStructure(loaded.raw);
       structureRegions = summary.regions;
       motionHints = summary.motionHints;
+      const nodes = Array.isArray((loaded.raw as { nodes?: unknown }).nodes)
+        ? ((loaded.raw as { nodes: unknown[] }).nodes)
+        : [];
+      completeness.nodeCount = nodes.length;
+      completeness.hasStyles = nodes.some(
+        (n) =>
+          n &&
+          typeof n === "object" &&
+          (n as { styles?: unknown }).styles &&
+          typeof (n as { styles: unknown }).styles === "object",
+      );
+      completeness.hasMotion = Boolean(motionHints?.length);
+      completeness.kind = loaded.kind;
+      completeness.highFidelityCapable = loaded.highFidelityCapable;
+
+      layoutNotes.push(
+        `Structure: ${loaded.kind} via ${loaded.source}` +
+          (loaded.highFidelityCapable ? " (high-fidelity capable)" : " (not high-fidelity)"),
+      );
       if (summary.tokenHints.length) {
         layoutNotes.push(
           `CSS variables (sample): ${summary.tokenHints.slice(0, 8).join("; ")}`,
@@ -129,9 +189,18 @@ async function artifactToStep(
             .join("; ")}`,
         );
       }
-    } catch {
-      layoutNotes.push("Structure snapshot present but unreadable");
+      if (loaded.kind === "synthetic") {
+        layoutNotes.push(
+          "Structure is synthetic_fallback — do not treat as High Fidelity measured CSS",
+        );
+      }
+    } else {
+      layoutNotes.push(
+        `Structure unavailable: ${loaded.error || "unreadable"} (source=${loaded.source})`,
+      );
     }
+  } else {
+    layoutNotes.push("Structure: missing");
   }
 
   const roles: UiRole[] = inferRoles(tags);
@@ -152,6 +221,7 @@ async function artifactToStep(
     layoutNotes,
     structureRegions,
     motionHints,
+    structureCompleteness: completeness,
     artifacts: [
       ...(posterUrl
         ? [

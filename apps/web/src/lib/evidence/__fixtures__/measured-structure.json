@@ -1,0 +1,76 @@
+{
+  "capturedAt": "2026-11-24T20:00:00.000Z",
+  "documentTitle": "Fixture Casino",
+  "extractorVersion": "structure-1.0.0",
+  "stylesAvailability": "dom",
+  "cssVariables": [
+    {
+      "name": "--bg-page",
+      "value": { "value": "#12171a", "provenance": "measured" },
+      "source": "documentElement"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "n0",
+      "tag": "aside",
+      "role": "navigation",
+      "selectorHint": "aside.nav",
+      "textPreview": "Casino Sports",
+      "box": { "x": 8, "y": 60, "width": 240, "height": 800 },
+      "styles": {
+        "display": "flex",
+        "position": "relative",
+        "backgroundColor": "rgb(26, 31, 37)",
+        "borderRadius": "16px",
+        "paddingTop": "8px",
+        "paddingLeft": "8px",
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "color": "rgb(255, 255, 255)",
+        "gap": "2px"
+      }
+    },
+    {
+      "nodeId": "n1",
+      "tag": "button",
+      "role": "button",
+      "selectorHint": "button.nav-row",
+      "textPreview": "Casino",
+      "box": { "x": 16, "y": 72, "width": 224, "height": 40 },
+      "styles": {
+        "display": "flex",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderRadius": "6px",
+        "fontSize": "13px",
+        "fontWeight": "500",
+        "paddingTop": "0px",
+        "paddingLeft": "10px",
+        "color": "rgb(255, 255, 255)"
+      }
+    }
+  ],
+  "motion": {
+    "extractorVersion": "motion-1.0.0",
+    "animations": [
+      {
+        "targetHint": "aside.nav",
+        "name": { "value": "width", "provenance": "measured" },
+        "durationMs": { "value": 200, "provenance": "measured" },
+        "easing": { "value": "cubic-bezier(0.4, 0, 0.2, 1)", "provenance": "measured" },
+        "iterationCount": { "value": "1", "provenance": "measured" },
+        "source": "css_transition",
+        "playState": "finished"
+      }
+    ]
+  },
+  "page": { "url": "https://example.test/fixture", "title": "Fixture Casino" },
+  "viewport": {
+    "width": 1440,
+    "height": 900,
+    "devicePixelRatio": 2,
+    "scrollX": 0,
+    "scrollY": 0
+  },
+  "sensitiveFlags": []
+}

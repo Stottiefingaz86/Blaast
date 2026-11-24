@@ -122,15 +122,17 @@ export async function createSignedCaptureUpload(opts: {
   return { path: objectPath, signedUrl, token };
 }
 
-/** Upload video + poster for a published artifact; returns public URLs. */
+/** Upload video + poster + structure for a published artifact; returns public URLs. */
 export async function uploadPublishedMedia(opts: {
   sessionId: string;
   artifactId: string;
   videoPath?: string;
   posterPath?: string;
-}): Promise<{ videoUrl?: string; posterUrl?: string }> {
+  structurePath?: string;
+}): Promise<{ videoUrl?: string; posterUrl?: string; structureUrl?: string }> {
   const root = capturesDir();
-  const out: { videoUrl?: string; posterUrl?: string } = {};
+  const out: { videoUrl?: string; posterUrl?: string; structureUrl?: string } =
+    {};
 
   if (opts.videoPath) {
     const abs = path.join(root, opts.videoPath);
@@ -159,6 +161,25 @@ export async function uploadPublishedMedia(opts: {
     if (uploaded) {
       const url = storagePublicUrl(uploaded);
       if (url) out.posterUrl = url;
+    }
+  }
+
+  if (opts.structurePath) {
+    const abs = path.join(root, opts.structurePath);
+    const objectPath = opts.structurePath.replace(/^\//, "");
+    const uploaded = await uploadCaptureObject({
+      objectPath,
+      absolutePath: abs,
+      contentType: "application/json",
+    });
+    if (uploaded) {
+      const url = storagePublicUrl(uploaded);
+      if (url) out.structureUrl = url;
+    } else {
+      console.error(
+        "[uploadPublishedMedia] structure upload failed",
+        objectPath,
+      );
     }
   }
 
