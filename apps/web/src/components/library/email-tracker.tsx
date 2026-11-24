@@ -1,8 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
-import { Check, Copy, ImageIcon } from "lucide-react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
+import { Check, Copy } from "lucide-react";
 import type { CatalogEmail } from "@/lib/library/catalog";
 import { copyImageAsPng } from "@/lib/library/media-actions";
 import { cn } from "@/lib/utils";
@@ -17,16 +21,6 @@ export function researchAliasFor(slug: string, hostname?: string) {
   return `scuup678+rs${key}@gmail.com`;
 }
 
-function categoryLabel(category: string) {
-  if (category === "verify") return "Verify";
-  if (category === "welcome") return "Welcome";
-  if (category === "bonus") return "Bonus";
-  if (category === "deposit_nudge") return "Deposit";
-  if (category === "vip") return "VIP";
-  if (category === "reactivation") return "Reactivation";
-  return category.replace(/_/g, " ");
-}
-
 function formatClock(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
@@ -38,9 +32,8 @@ function formatClock(iso: string) {
 
 function formatDay(iso: string) {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Unknown date";
+  if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, {
-    weekday: "long",
     month: "short",
     day: "numeric",
   });
@@ -63,21 +56,18 @@ type Props = {
 };
 
 /**
- * Lifecycle email timeline — arrivals by time, preview + copy image.
- * Fuller CRM review lives under Research (quiet link, not a fake “Deploy”).
+ * Email timeline — full email stills only, timestamps, hover to copy.
  */
 export function EmailTracker({
   emails,
   operatorName,
   slug,
-  hostname,
-  logoUrl,
   variant = "library",
   onOpen,
 }: Props) {
   const [toast, setToast] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const alias = researchAliasFor(slug, hostname);
+  const [hoverId, setHoverId] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -105,7 +95,8 @@ export function EmailTracker({
   }, [ordered]);
 
   const copyImage = useCallback(
-    async (mail: CatalogEmail) => {
+    async (mail: CatalogEmail, e?: MouseEvent) => {
+      e?.stopPropagation();
       if (!mail.posterUrl) {
         showToast("No image for this email");
         return;
@@ -114,14 +105,14 @@ export function EmailTracker({
       try {
         const result = await copyImageAsPng(
           mail.posterUrl,
-          `${slug}-${mail.category || "email"}.png`,
+          `${slug}-email.png`,
         );
         showToast(
           result === "clipboard"
-            ? "Image copied"
+            ? "Copied"
             : result === "download"
-              ? "Image downloaded"
-              : "Couldn’t copy image",
+              ? "Downloaded"
+              : "Couldn’t copy",
         );
       } finally {
         setBusyId(null);
@@ -130,131 +121,68 @@ export function EmailTracker({
     [showToast, slug],
   );
 
-  const copyAlias = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(alias);
-      showToast("Alias copied");
-    } catch {
-      showToast("Couldn’t copy alias");
-    }
-  }, [alias, showToast]);
+  if (ordered.length === 0) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-[14px] text-neutral-500">
+          No emails for {operatorName} yet
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={cn(
-        "mx-auto w-full",
-        variant === "research" ? "max-w-2xl" : "max-w-3xl",
+    <div className="relative mx-auto w-full max-w-2xl">
+      {toast && (
+        <div className="pointer-events-none fixed bottom-8 left-1/2 z-[210] -translate-x-1/2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[12px] font-medium text-neutral-950 shadow-lg">
+            <Check className="size-3.5" strokeWidth={2} />
+            {toast}
+          </span>
+        </div>
       )}
-    >
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[12px] text-neutral-500">
-            {ordered.length} email{ordered.length === 1 ? "" : "s"} · {operatorName}
-          </p>
-          <button
-            type="button"
-            onClick={() => void copyAlias()}
-            className="mt-1.5 inline-flex max-w-full items-center gap-1.5 text-[12px] text-neutral-400 transition hover:text-white"
-            title="Copy research alias"
-          >
-            <Copy className="size-3 shrink-0 opacity-60" />
-            <span className="truncate">{alias}</span>
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          {toast && (
-            <span className="inline-flex items-center gap-1.5 text-[12px] text-neutral-300">
-              <Check className="size-3.5" />
-              {toast}
-            </span>
-          )}
-          {variant === "library" ? (
-            <Link
-              href={`/research?operator=${encodeURIComponent(slug)}`}
-              className="text-[12px] text-neutral-500 underline-offset-2 hover:text-white hover:underline"
-            >
-              Open in Research
-            </Link>
-          ) : (
-            <Link
-              href={`/operators/${slug}?tab=emails`}
-              className="text-[12px] text-neutral-500 underline-offset-2 hover:text-white hover:underline"
-            >
-              Back to Library
-            </Link>
-          )}
-        </div>
-      </div>
 
-      {ordered.length === 0 ? (
-        <div className="py-16 text-center">
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={logoUrl}
-              alt=""
-              className="mx-auto size-10 rounded-xl bg-white object-contain p-1"
-            />
-          ) : null}
-          <p className="mt-4 text-[15px] font-medium text-white">
-            No emails yet
-          </p>
-          <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-neutral-500">
-            Sign up on {operatorName} with the research alias. Messages show
-            here in order with the time they arrived.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-10">
-          {byDay.map(([day, dayMails]) => (
-            <section key={day}>
-              <p className="mb-5 text-[12px] text-neutral-500">
-                {formatDay(dayMails[0]!.receivedAt)}
-              </p>
-              <ol className="relative">
-                <div
-                  aria-hidden
-                  className="absolute top-2 bottom-2 left-[5px] w-px bg-white/[0.08]"
-                />
-                {dayMails.map((mail) => (
-                  <li key={mail.id} className="relative flex gap-5 pb-8 last:pb-0">
-                    <div className="relative z-10 mt-1.5 flex w-3 shrink-0 justify-center">
-                      <span className="size-2.5 rounded-full bg-white ring-4 ring-[#111]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span className="text-[13px] font-medium tabular-nums text-white">
-                          {formatClock(mail.receivedAt)}
-                        </span>
-                        <span className="text-[12px] text-neutral-500">
-                          {categoryLabel(mail.category)}
-                        </span>
-                        <span className="truncate text-[12px] text-neutral-600">
-                          {mail.from}
-                        </span>
-                      </div>
-                      <p className="mb-3 text-[14px] font-medium text-neutral-200">
-                        {mail.subject}
-                      </p>
+      <div className="space-y-12">
+        {byDay.map(([day, dayMails]) => (
+          <section key={day}>
+            <p className="mb-5 text-center text-[12px] text-neutral-500">
+              {formatDay(dayMails[0]!.receivedAt)}
+            </p>
+            <ol className="flex flex-col gap-10">
+              {dayMails.map((mail) => {
+                const hovering = hoverId === mail.id;
+                return (
+                  <li key={mail.id} className="flex flex-col items-center">
+                    <p className="mb-3 text-[12px] tabular-nums text-neutral-500">
+                      {formatClock(mail.receivedAt)}
+                    </p>
+                    <div
+                      className="group relative w-full max-w-[440px]"
+                      onMouseEnter={() => setHoverId(mail.id)}
+                      onMouseLeave={() => setHoverId(null)}
+                    >
                       <button
                         type="button"
                         onClick={() => onOpen?.(mail)}
-                        className="group block w-full overflow-hidden rounded-2xl bg-[#E9EAEE] text-left ring-1 ring-white/10 transition hover:ring-white/25"
+                        className={cn(
+                          "lib-card relative w-full overflow-hidden rounded-[28px] p-4 text-left outline-none transition sm:p-5",
+                          "ring-0 hover:ring-2 hover:ring-white/20 focus-visible:ring-2 focus-visible:ring-white/40",
+                        )}
                       >
                         <div
                           className={cn(
-                            "overflow-hidden",
+                            "overflow-hidden rounded-2xl bg-[#E9EAEE] ring-1 ring-black/5",
                             variant === "research"
-                              ? "aspect-[16/10]"
-                              : "aspect-[16/10] max-h-[220px]",
+                              ? "aspect-[3/4] max-h-[560px]"
+                              : "aspect-[3/4] max-h-[480px]",
                           )}
                         >
                           {mail.html ? (
                             <iframe
-                              title={mail.subject}
+                              title="Email"
                               sandbox=""
                               srcDoc={mail.html}
-                              className="pointer-events-none h-[200%] w-[200%] origin-top-left scale-50 bg-white"
+                              className="pointer-events-none h-[200%] w-[200%] origin-top-left scale-50 bg-[#E9EAEE]"
                             />
                           ) : mail.posterUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -265,38 +193,42 @@ export function EmailTracker({
                               className="h-full w-full object-cover object-top"
                             />
                           ) : (
-                            <div className="flex h-full min-h-[120px] items-center justify-center bg-neutral-200 text-[12px] text-neutral-500">
-                              No preview
+                            <div className="flex h-full items-center justify-center text-[12px] text-neutral-400">
+                              Email
                             </div>
                           )}
                         </div>
                       </button>
-                      <div className="mt-2.5 flex items-center gap-3">
+
+                      <div
+                        className={cn(
+                          "pointer-events-none absolute inset-x-0 bottom-6 flex justify-center transition duration-200",
+                          hovering
+                            ? "translate-y-0 opacity-100"
+                            : "translate-y-1 opacity-0",
+                        )}
+                      >
                         <button
                           type="button"
                           disabled={!mail.posterUrl || busyId === mail.id}
-                          onClick={() => void copyImage(mail)}
-                          className="inline-flex items-center gap-1.5 text-[12px] text-neutral-400 transition hover:text-white disabled:opacity-40"
+                          onClick={(e) => void copyImage(mail, e)}
+                          className={cn(
+                            "pointer-events-auto inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-[13px] font-semibold text-neutral-950 shadow-lg",
+                            "hover:bg-neutral-100 disabled:opacity-50",
+                          )}
                         >
-                          <ImageIcon className="size-3.5" strokeWidth={1.75} />
+                          <Copy className="size-3.5" strokeWidth={2} />
                           {busyId === mail.id ? "Copying…" : "Copy image"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onOpen?.(mail)}
-                          className="text-[12px] text-neutral-400 transition hover:text-white"
-                        >
-                          Open
                         </button>
                       </div>
                     </div>
                   </li>
-                ))}
-              </ol>
-            </section>
-          ))}
-        </div>
-      )}
+                );
+              })}
+            </ol>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
