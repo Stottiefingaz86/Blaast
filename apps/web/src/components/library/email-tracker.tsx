@@ -45,6 +45,17 @@ function dayKey(iso: string) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Full-bleed email preview — fills card width, centered (no left-anchored scale). */
+function emailPreviewSrcDoc(html: string) {
+  const body = html.replace(/^[\s\S]*?<body[^>]*>/i, "").replace(/<\/body>[\s\S]*$/i, "");
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><style>
+html,body{margin:0!important;padding:0!important;width:100%!important;background:#E9EAEE!important;}
+body{min-height:100%;}
+body > div, body > center, body > table{max-width:100%!important;width:100%!important;margin-left:auto!important;margin-right:auto!important;}
+img{max-width:100%!important;height:auto!important;}
+</style></head><body>${body || html}</body></html>`;
+}
+
 type Props = {
   emails: CatalogEmail[];
   operatorName: string;
@@ -171,7 +182,7 @@ export function EmailTracker({
                       >
                         <div
                           className={cn(
-                            "overflow-hidden rounded-2xl bg-[#E9EAEE] ring-1 ring-black/5",
+                            "relative mx-auto overflow-hidden rounded-2xl bg-[#E9EAEE] ring-1 ring-black/5",
                             variant === "research"
                               ? "aspect-[3/4] max-h-[560px]"
                               : "aspect-[3/4] max-h-[480px]",
@@ -181,8 +192,8 @@ export function EmailTracker({
                             <iframe
                               title="Email"
                               sandbox=""
-                              srcDoc={mail.html}
-                              className="pointer-events-none h-[200%] w-[200%] origin-top-left scale-50 bg-[#E9EAEE]"
+                              srcDoc={emailPreviewSrcDoc(mail.html)}
+                              className="pointer-events-none absolute inset-0 size-full border-0 bg-[#E9EAEE]"
                             />
                           ) : mail.posterUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -190,7 +201,7 @@ export function EmailTracker({
                               alt=""
                               src={mail.posterUrl}
                               loading="lazy"
-                              className="h-full w-full object-cover object-top"
+                              className="absolute inset-0 size-full object-contain object-top"
                             />
                           ) : (
                             <div className="flex h-full items-center justify-center text-[12px] text-neutral-400">
